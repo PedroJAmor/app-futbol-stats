@@ -183,7 +183,7 @@ export function calcularStatsGrupo(
   const equiposJuntos: Array<{ resultado: string; matchId: number }> = [];
   const setSeleccionados = new Set(playerIds);
 
-  for (const [key, playersEnEquipo] of matchTeamPlayers.entries()) {
+  for (const [key, playersEnEquipo] of Array.from(matchTeamPlayers.entries())) {
     // Verificar que todos los seleccionados estén en este equipo
     const todosPresentes = playerIds.every((id) => playersEnEquipo.has(id));
     if (!todosPresentes) continue;
