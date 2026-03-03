@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+// ─── Usuarios (admin por ahora, preparado para roles futuros) ───────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         Role     @default(VIEWER)
+  createdAt    DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  ANOTADOR  // futuro: crea partidos y anota jugadores
+  JUGADOR   // futuro: se anota a partidos
+  VIEWER
+}
+
+// ─── Jugadores ───────────────────────────────────────────────────────────────
+
+model Player {
+  id        Int               @id @default(autoincrement())
+  nombre    String
+  apodo     String?
+  foto      String?           // URL de Cloudinary
+  fechaNac  DateTime?
+  activo    Boolean           @default(true)
+  createdAt DateTime          @default(now())
+  stats     MatchPlayerStat[]
+}
+
+// ─── Partidos ────────────────────────────────────────────────────────────────
+
+model Match {
+  id          Int         @id @default(autoincrement())
+  fecha       DateTime    // incluye hora
+  formato     Int         // 5, 7 u 11
+  cancha      String?
+  precio      Float?
+  clima       String?     // "Despejado", "Nublado", "Lluvioso", "Frío", etc.
+  temperatura Float?
+  notas       String?
+  mvpId       Int?        // ID del jugador MVP (sin FK para poder ser null libremente)
+  createdAt   DateTime    @default(now())
+  teams       MatchTeam[]
+}
+
+// ─── Equipos de un partido (siempre 2 por partido) ──────────────────────────
+
+model MatchTeam {
+  id        Int               @id @default(autoincrement())
+  matchId   Int
+  match     Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  color     String            // "Oscuro", "Claro", "Rojo", "Blanco", o nombre especial
+  resultado Resultado
+  players   MatchPlayerStat[]
+}
+
+enum Resultado {
+  WIN
+  LOSS
+  DRAW
+}
+
+// ─── Participación de un jugador en un equipo de un partido ─────────────────
+// Una fila = un jugador en un equipo en un partido
+// Si en un F7 rotaron 8 jugadores en un equipo → 8 filas para ese MatchTeam
+
+model MatchPlayerStat {
+  id       Int       @id @default(autoincrement())
+  teamId   Int
+  team     MatchTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  playerId Int
+  player   Player    @relation(fields: [playerId], references: [id])
+  goles    Int?      // null por ahora, se activa en una futura versión
+  golesEc  Int?      // goles en contra, null por ahora
+
+  @@unique([teamId, playerId]) // un jugador no puede estar dos veces en el mismo equipo
+}
