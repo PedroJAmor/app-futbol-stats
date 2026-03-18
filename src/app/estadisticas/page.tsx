@@ -23,6 +23,17 @@ type GrupoStats = {
   juntos: { pj: number; v: number; e: number; d: number; pctV: number; pctD: number };
   participacion: Record<number, { playerId: number; nombre: string; apodo: string | null; pjConGrupo: number; pjTotal: number; pctConGrupo: number }>;
   statsIndividuales: PlayerStats[];
+  h2h: {
+    pj: number;
+    v: number;
+    e: number;
+    d: number;
+    pctV: number;
+    jugadores: [
+      { playerId: number; nombre: string; apodo: string | null },
+      { playerId: number; nombre: string; apodo: string | null }
+    ];
+  } | null;
 };
 
 type SortCol = "pj" | "v" | "e" | "d" | "pts" | "pctV" | "pctD";
