@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { prisma } from "@/lib/prisma";
+import { buildDisplayNames } from "@/lib/displayName";
 
 export const revalidate = 60;
 
@@ -32,7 +33,15 @@ async function getData(id: number) {
     });
   }
 
-  return { partido, mvp };
+  // Armar displayNames con todos los jugadores del partido
+  const todosJugadores = partido.teams.flatMap(t =>
+    t.players.map(p => ({ id: p.player.id, nombre: p.player.nombre, apodo: p.player.apodo }))
+  );
+  if (mvp && !todosJugadores.find(j => j.id === mvp.id)) {
+    todosJugadores.push({ id: mvp.id, nombre: mvp.nombre, apodo: mvp.apodo });
+  }
+  const displayNames = buildDisplayNames(todosJugadores);
+  return { partido, mvp, displayNames };
 }
 
 export default async function PartidoPage({ params }: { params: { id: string } }) {
@@ -82,7 +91,7 @@ export default async function PartidoPage({ params }: { params: { id: string } }
         {partido.temperatura != null && <MetaItem label="Temperatura" value={`${partido.temperatura}°C`} />}
         {partido.precio != null && <MetaItem label="Precio" value={`$${partido.precio.toLocaleString("es-AR")}`} />}
         {mvp && (
-          <MetaItem label="MVP ⭐" value={mvp.apodo ?? mvp.nombre} />
+          <MetaItem label="MVP ⭐" value={displayNames.get(mvp.id) ?? mvp.nombre} />
         )}
       </div>
 
@@ -123,7 +132,7 @@ export default async function PartidoPage({ params }: { params: { id: string } }
                     </div>
                   )}
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 500 }}>{ps.player.nombre}</div>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>{displayNames.get(ps.player.id) ?? ps.player.nombre}</div>
                     {ps.player.apodo && <div style={{ fontSize: 12, color: "#666" }}>"{ps.player.apodo}"</div>}
                   </div>
                   {partido.mvpId === ps.player.id && <span>⭐</span>}

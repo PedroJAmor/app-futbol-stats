@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { calcularStats, statsParaHome } from "@/lib/stats";
+import { buildDisplayNames } from "@/lib/displayName";
 
 export const revalidate = 60; // refresca cada 60 segundos
 
@@ -38,14 +39,16 @@ async function getData() {
   ]);
 
   const allStats = calcularStats(rawStats);
+  const todosJugadores = allStats.map(s => ({ id: s.playerId, nombre: s.nombre, apodo: s.apodo }));
+  const displayNames = buildDisplayNames(todosJugadores);
   const topPuntos = [...allStats].sort((a, b) => b.pts - a.pts).slice(0, 10);
   const topPctV = statsParaHome(allStats, totalPartidos);
 
-  return { topPuntos, topPctV, ultimosPartidos, totalPartidos };
+  return { topPuntos, topPctV, ultimosPartidos, totalPartidos, displayNames };
 }
 
 export default async function HomePage() {
-  const { topPuntos, topPctV, ultimosPartidos, totalPartidos } = await getData();
+  const { topPuntos, topPctV, ultimosPartidos, totalPartidos, displayNames } = await getData();
 
   return (
     <div>
@@ -128,7 +131,7 @@ export default async function HomePage() {
                     <td style={tdStyle}>{i + 1}</td>
                     <td style={tdStyle}>
                       <Link href={`/jugadores/${j.playerId}`}>
-                        {j.apodo ?? j.nombre}
+                        {displayNames.get(j.playerId) ?? j.nombre}
                       </Link>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>
@@ -146,7 +149,7 @@ export default async function HomePage() {
           {totalPartidos < 1 ? (
             <p>Sin datos.</p>
           ) : topPctV.length === 0 ? (
-            <p>Aún no hay jugadores con 5 o más partidos.</p>
+            <p>Aún no hay jugadores con 3 o más partidos.</p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
@@ -163,7 +166,7 @@ export default async function HomePage() {
                     <td style={tdStyle}>{i + 1}</td>
                     <td style={tdStyle}>
                       <Link href={`/jugadores/${j.playerId}`}>
-                        {j.apodo ?? j.nombre}
+                        {displayNames.get(j.playerId) ?? j.nombre}
                       </Link>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>

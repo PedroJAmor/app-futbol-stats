@@ -2,8 +2,9 @@
 // src/app/estadisticas/page.tsx
 // Client component: filtros, ordenamiento y comparación de jugadores son interactivos
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { buildDisplayNames } from "@/lib/displayName";
 
 type PlayerStats = {
   playerId: number;
@@ -126,6 +127,12 @@ export default function EstadisticasPage() {
     sortDir === "desc" ? b[sortCol] - a[sortCol] : a[sortCol] - b[sortCol]
   );
 
+  // displayNames calculado una sola vez cuando cambia la lista de jugadores
+  const displayNames = useMemo(() => {
+    const jugadores = todosJugadores.map(j => ({ id: j.playerId, nombre: j.nombre, apodo: j.apodo }));
+    return buildDisplayNames(jugadores);
+  }, [todosJugadores]);
+
   return (
     <div>
       <h1>Estadísticas avanzadas</h1>
@@ -194,7 +201,7 @@ export default function EstadisticasPage() {
                   <td style={tdStyle}>{i + 1}</td>
                   <td style={tdStyle}>
                     <Link href={`/jugadores/${j.playerId}`}>
-                      {j.apodo ?? j.nombre}
+                      {displayNames.get(j.playerId) ?? j.nombre}
                     </Link>
                   </td>
                   <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>
@@ -230,7 +237,7 @@ export default function EstadisticasPage() {
               const j = todosJugadores.find((x) => x.playerId === id);
               return (
                 <span key={id} style={{ background: "#333", color: "#fff", borderRadius: 16, padding: "4px 12px", fontSize: 13, display: "flex", alignItems: "center", gap: 6 }}>
-                  {j?.apodo ?? j?.nombre ?? id}
+                  {displayNames.get(id) ?? j?.nombre ?? id}
                   <button onClick={() => toggleJugador(id)} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }}>×</button>
                 </span>
               );
@@ -252,7 +259,7 @@ export default function EstadisticasPage() {
                     color: seleccionado ? "#fff" : "#333",
                   }}
                 >
-                  {j.apodo ?? j.nombre}
+                  {displayNames.get(j.playerId) ?? j.nombre}
                 </button>
               );
             })}
@@ -309,7 +316,7 @@ export default function EstadisticasPage() {
                 {Object.values(grupoStats.participacion).map((p) => (
                   <tr key={p.playerId}>
                     <td style={tdStyle}>
-                      <Link href={`/jugadores/${p.playerId}`}>{p.apodo ?? p.nombre}</Link>
+                      <Link href={`/jugadores/${p.playerId}`}>{displayNames.get(p.playerId) ?? p.nombre}</Link>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{p.pjTotal}</td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{p.pjConGrupo}</td>
@@ -324,9 +331,9 @@ export default function EstadisticasPage() {
             {grupoStats.h2h && (
               <div style={{ marginBottom: 24 }}>
                 <h3>
-                  Head to head: {grupoStats.h2h.jugadores[0].apodo ?? grupoStats.h2h.jugadores[0].nombre}
+                  Head to head: {displayNames.get(grupoStats.h2h.jugadores[0].playerId) ?? grupoStats.h2h.jugadores[0].nombre}
                   {" vs "}
-                  {grupoStats.h2h.jugadores[1].apodo ?? grupoStats.h2h.jugadores[1].nombre}
+                  {displayNames.get(grupoStats.h2h.jugadores[1].playerId) ?? grupoStats.h2h.jugadores[1].nombre}
                 </h3>
                 {grupoStats.h2h.pj === 0 ? (
                   <p>No se enfrentaron en ningun partido con los filtros seleccionados.</p>
@@ -346,7 +353,7 @@ export default function EstadisticasPage() {
                       <tr>
                         <td style={tdStyle}>
                           <Link href={`/jugadores/${grupoStats.h2h.jugadores[0].playerId}`}>
-                            {grupoStats.h2h.jugadores[0].apodo ?? grupoStats.h2h.jugadores[0].nombre}
+                            {displayNames.get(grupoStats.h2h.jugadores[0].playerId) ?? grupoStats.h2h.jugadores[0].nombre}
                           </Link>
                         </td>
                         <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.pj}</td>
@@ -358,7 +365,7 @@ export default function EstadisticasPage() {
                       <tr>
                         <td style={tdStyle}>
                           <Link href={`/jugadores/${grupoStats.h2h.jugadores[1].playerId}`}>
-                            {grupoStats.h2h.jugadores[1].apodo ?? grupoStats.h2h.jugadores[1].nombre}
+                            {displayNames.get(grupoStats.h2h.jugadores[1].playerId) ?? grupoStats.h2h.jugadores[1].nombre}
                           </Link>
                         </td>
                         <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.pj}</td>
@@ -386,7 +393,7 @@ export default function EstadisticasPage() {
                 {grupoStats.statsIndividuales.map((j) => (
                   <tr key={j.playerId}>
                     <td style={tdStyle}>
-                      <Link href={`/jugadores/${j.playerId}`}>{j.apodo ?? j.nombre}</Link>
+                      <Link href={`/jugadores/${j.playerId}`}>{displayNames.get(j.playerId) ?? j.nombre}</Link>
                     </td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>
                     <td style={{ ...tdStyle, textAlign: "center" }}>{j.v}</td>
