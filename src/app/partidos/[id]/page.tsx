@@ -51,7 +51,7 @@ export default async function PartidoPage({ params }: { params: { id: string } }
   const data = await getData(id);
   if (!data) notFound();
 
-  const { partido, mvp } = data;
+  const { partido, mvp, displayNames } = data;
   const equipoGanador = partido.teams.find((t) => t.resultado === "WIN");
   const esEmpate = partido.teams.every((t) => t.resultado === "DRAW");
 
