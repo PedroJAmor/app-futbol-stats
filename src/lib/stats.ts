@@ -1,45 +1,76 @@
 // src/lib/stats.ts
-// Toda la lógica de estadísticas: puntos, porcentajes, filtros y comparación de jugadores
-
-// ─── Sistema de puntos ───────────────────────────────────────────────────────
-// Victoria: 4pts · Empate: 2pts · Derrota: 1pt
-// Se premia la participación: vale más venir y perder que no venir
+// Toda la logica de estadisticas: puntos, porcentajes, filtros y comparacion de jugadores
 
 export const PUNTOS = { WIN: 4, DRAW: 2, LOSS: 1 } as const;
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
+// ---- Tipos ----
 
 export type PlayerStats = {
   playerId: number;
   nombre: string;
   apodo: string | null;
   foto: string | null;
-  pj: number;  // partidos jugados
-  v: number;   // victorias
-  e: number;   // empates
-  d: number;   // derrotas
-  pts: number; // puntos totales
-  pctV: number; // porcentaje de victorias (0-100)
-  pctD: number; // porcentaje de derrotas (0-100)
+  pj: number;
+  v: number;
+  e: number;
+  d: number;
+  pts: number;
+  pctV: number;
+  pctD: number;
 };
 
 export type StatsFilter = {
-  formato?: number;      // 5, 7 u 11
-  fechaDesde?: string;   // ISO date string, ej: "2025-01-01"
-  fechaHasta?: string;   // ISO date string, ej: "2025-12-31"
-  pjMinimo?: number;     // mínimo de partidos jugados para aparecer
+  formato?: number;
+  fechaDesde?: string;
+  fechaHasta?: string;
+  pjMinimo?: number;
 };
 
-// Tipo del raw stat que viene de la DB (lo que Prisma devuelve)
 export type RawStat = {
   player: { id: number; nombre: string; apodo: string | null; foto: string | null };
   team: {
+    id: number;
     resultado: string;
     match: { id: number; formato: number; fecha: Date };
   };
 };
 
-// ─── Filtro para queries de Prisma ──────────────────────────────────────────
+export type GrupoStats = {
+  juntos: {
+    pj: number;
+    v: number;
+    e: number;
+    d: number;
+    pctV: number;
+    pctD: number;
+  };
+  participacion: Record<
+    number,
+    {
+      playerId: number;
+      nombre: string;
+      apodo: string | null;
+      pjConGrupo: number;
+      pjTotal: number;
+      pctConGrupo: number;
+    }
+  >;
+  statsIndividuales: PlayerStats[];
+  // Solo cuando son exactamente 2 jugadores
+  h2h: {
+    pj: number;
+    v: number;    // victorias del jugador [0]
+    e: number;
+    d: number;    // derrotas del jugador [0] = victorias del [1]
+    pctV: number;
+    jugadores: [
+      { playerId: number; nombre: string; apodo: string | null },
+      { playerId: number; nombre: string; apodo: string | null }
+    ];
+  } | null;
+};
+
+// ---- Filtro para queries de Prisma ----
 
 export function buildMatchWhere(filter: StatsFilter) {
   const matchWhere: Record<string, any> = {};
@@ -54,7 +85,6 @@ export function buildMatchWhere(filter: StatsFilter) {
       matchWhere.fecha.gte = new Date(filter.fechaDesde);
     }
     if (filter.fechaHasta) {
-      // Incluir hasta el final del día indicado
       const hasta = new Date(filter.fechaHasta);
       hasta.setHours(23, 59, 59, 999);
       matchWhere.fecha.lte = hasta;
@@ -64,7 +94,7 @@ export function buildMatchWhere(filter: StatsFilter) {
   return matchWhere;
 }
 
-// ─── Cálculo de estadísticas individuales ───────────────────────────────────
+// ---- Calculo de estadisticas individuales ----
 
 export function calcularStats(
   rawStats: RawStat[],
@@ -109,16 +139,14 @@ export function calcularStats(
     }));
 }
 
-// ─── Tabla del home ──────────────────────────────────────────────────────────
-// Ordenada por %V, con mínimo de PJ si ya hay suficientes partidos totales
+// ---- Tabla del home ----
 
 export function statsParaHome(
   allStats: PlayerStats[],
   totalPartidos: number
 ): PlayerStats[] {
-  const MIN_PARTIDOS_TOTALES = 5; // hasta que no haya 5 partidos, no se aplica el filtro
-  const MIN_PJ_JUGADOR = 3;       // mínimo de partidos para aparecer en la tabla del home
-
+  const MIN_PARTIDOS_TOTALES = 10;
+  const MIN_PJ_JUGADOR = 5;
   const aplicarFiltro = totalPartidos >= MIN_PARTIDOS_TOTALES;
 
   return allStats
@@ -127,35 +155,8 @@ export function statsParaHome(
     .slice(0, 10);
 }
 
-// ─── Estadísticas de grupo (2+ jugadores jugando juntos) ────────────────────
+// ---- Estadisticas de grupo (2+ jugadores juntos) ----
 
-export type GrupoStats = {
-  // Partidos donde todos los jugadores seleccionados estuvieron en el mismo equipo
-  juntos: {
-    pj: number;
-    v: number;
-    e: number;
-    d: number;
-    pctV: number;
-    pctD: number;
-  };
-  // Para cada jugador: qué % de sus partidos totales los jugó con el grupo
-  participacion: Record<
-    number,
-    {
-      playerId: number;
-      nombre: string;
-      apodo: string | null;
-      pjConGrupo: number;    // partidos jugados junto al grupo
-      pjTotal: number;       // partidos jugados en total (con el filtro activo)
-      pctConGrupo: number;   // pjConGrupo / pjTotal * 100
-    }
-  >;
-  // Stats individuales de cada jugador (útil para mostrar tabla comparativa)
-  statsIndividuales: PlayerStats[];
-};
-
-// Recibe los stats ya calculados y los raw stats para cruzarlos
 export function calcularStatsGrupo(
   playerIds: number[],
   rawStats: RawStat[]
@@ -164,51 +165,38 @@ export function calcularStatsGrupo(
     throw new Error("Se necesitan al menos 2 jugadores para comparar");
   }
 
-  // Armar mapa: matchId → teamId → Set de playerIds en ese equipo
+  // Mapa: "${matchId}-${teamId}" -> Set de playerIds en ese equipo
   const matchTeamPlayers = new Map<string, Set<number>>();
-  // clave: `${matchId}-${teamId}`
 
   for (const stat of rawStats) {
-    const matchId = stat.team.match.id;
-    const teamId = (stat.team as any).id;
-    const key = `${matchId}-${teamId}`;
-
+    const key = `${stat.team.match.id}-${stat.team.id}`;
     if (!matchTeamPlayers.has(key)) {
       matchTeamPlayers.set(key, new Set());
     }
     matchTeamPlayers.get(key)!.add(stat.player.id);
   }
 
-  // Encontrar los equipos donde TODOS los jugadores seleccionados estuvieron juntos
+  // Partidos donde TODOS los seleccionados estuvieron en el mismo equipo
   const equiposJuntos: Array<{ resultado: string; matchId: number }> = [];
-  const setSeleccionados = new Set(playerIds);
 
   for (const [key, playersEnEquipo] of Array.from(matchTeamPlayers.entries())) {
-    // Verificar que todos los seleccionados estén en este equipo
     const todosPresentes = playerIds.every((id) => playersEnEquipo.has(id));
     if (!todosPresentes) continue;
 
-    // Buscar el resultado de este equipo
-    const [matchIdStr] = key.split("-");
+    const [matchIdStr, teamIdStr] = key.split("-");
     const matchId = Number(matchIdStr);
+    const teamId = Number(teamIdStr);
 
-    // Tomar el resultado del primer jugador seleccionado en este equipo
-    const statDeReferencia = rawStats.find(
-      (s) =>
-        s.team.match.id === matchId &&
-        (s.team as any).id === Number(key.split("-")[1]) &&
-        playerIds.includes(s.player.id)
+    const statRef = rawStats.find(
+      (s) => s.team.match.id === matchId && s.team.id === teamId && playerIds.includes(s.player.id)
     );
 
-    if (statDeReferencia) {
-      equiposJuntos.push({
-        resultado: statDeReferencia.team.resultado,
-        matchId,
-      });
+    if (statRef) {
+      equiposJuntos.push({ resultado: statRef.team.resultado, matchId });
     }
   }
 
-  // Calcular stats del grupo jugando juntos
+  // Stats del grupo jugando juntos
   const juntos = { pj: 0, v: 0, e: 0, d: 0, pctV: 0, pctD: 0 };
   const matchIdsJuntos = new Set(equiposJuntos.map((e) => e.matchId));
 
@@ -222,7 +210,7 @@ export function calcularStatsGrupo(
   juntos.pctV = juntos.pj > 0 ? Math.round((juntos.v / juntos.pj) * 100) : 0;
   juntos.pctD = juntos.pj > 0 ? Math.round((juntos.d / juntos.pj) * 100) : 0;
 
-  // Calcular participación: cuántos partidos totales jugó cada uno vs cuántos con el grupo
+  // Participacion cruzada
   const pjPorJugador = new Map<number, number>();
   const infoJugador = new Map<number, { nombre: string; apodo: string | null }>();
 
@@ -249,10 +237,69 @@ export function calcularStatsGrupo(
     };
   }
 
-  // Stats individuales de cada jugador seleccionado (con el filtro activo)
+  // Stats individuales
   const statsIndividuales = calcularStats(
     rawStats.filter((s) => playerIds.includes(s.player.id))
   );
 
-  return { juntos, participacion, statsIndividuales };
+  // ---- Head to head (solo para 2 jugadores) ----
+  let h2h: GrupoStats["h2h"] = null;
+
+  if (playerIds.length === 2) {
+    const [idA, idB] = playerIds;
+
+    const infoA = infoJugador.get(idA) ?? { nombre: "Jugador A", apodo: null };
+    const infoB = infoJugador.get(idB) ?? { nombre: "Jugador B", apodo: null };
+
+    // Agrupar stats por partido y equipo para encontrar enfrentamientos
+    // matchId -> { teamId -> playerIds[] }
+    const matchTeams = new Map<number, Map<number, number[]>>();
+
+    for (const stat of rawStats) {
+      const matchId = stat.team.match.id;
+      if (!matchTeams.has(matchId)) matchTeams.set(matchId, new Map());
+      const teams = matchTeams.get(matchId)!;
+      if (!teams.has(stat.team.id)) teams.set(stat.team.id, []);
+      teams.get(stat.team.id)!.push(stat.player.id);
+    }
+
+    let h2hPj = 0, h2hV = 0, h2hE = 0, h2hD = 0;
+
+    for (const [matchId, teams] of Array.from(matchTeams.entries())) {
+      const teamEntries = Array.from(teams.entries());
+
+      // Buscar el equipo de A y el equipo de B en este partido
+      const teamDeA = teamEntries.find(([, players]) => players.includes(idA));
+      const teamDeB = teamEntries.find(([, players]) => players.includes(idB));
+
+      // Si no estan en equipos distintos, no es enfrentamiento
+      if (!teamDeA || !teamDeB) continue;
+      if (teamDeA[0] === teamDeB[0]) continue; // mismo equipo, no cuenta
+
+      h2hPj++;
+
+      // Resultado desde la perspectiva de A
+      const resultadoDeA = rawStats.find(
+        (s) => s.team.match.id === matchId && s.team.id === teamDeA[0] && s.player.id === idA
+      )?.team.resultado;
+
+      if (resultadoDeA === "WIN") h2hV++;
+      else if (resultadoDeA === "DRAW") h2hE++;
+      else h2hD++;
+    }
+
+    h2h = {
+      pj: h2hPj,
+      v: h2hV,
+      e: h2hE,
+      d: h2hD,
+      pctV: h2hPj > 0 ? Math.round((h2hV / h2hPj) * 100) : 0,
+      jugadores: [
+        { playerId: idA, nombre: infoA.nombre, apodo: infoA.apodo },
+        { playerId: idB, nombre: infoB.nombre, apodo: infoB.apodo },
+      ],
+    };
+  }
+
+  return { juntos, participacion, statsIndividuales, h2h };
 }

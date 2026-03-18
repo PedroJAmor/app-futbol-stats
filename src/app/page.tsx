@@ -146,7 +146,7 @@ export default async function HomePage() {
           {totalPartidos < 1 ? (
             <p>Sin datos.</p>
           ) : topPctV.length === 0 ? (
-            <p>Aún no hay jugadores con 3 o más partidos.</p>
+            <p>Aún no hay jugadores con 5 o más partidos.</p>
           ) : (
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>

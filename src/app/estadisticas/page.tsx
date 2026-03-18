@@ -308,6 +308,60 @@ export default function EstadisticasPage() {
               </tbody>
             </table>
 
+
+            {/* Head to head - solo para 2 jugadores */}
+            {grupoStats.h2h && (
+              <div style={{ marginBottom: 24 }}>
+                <h3>
+                  Head to head: {grupoStats.h2h.jugadores[0].apodo ?? grupoStats.h2h.jugadores[0].nombre}
+                  {" vs "}
+                  {grupoStats.h2h.jugadores[1].apodo ?? grupoStats.h2h.jugadores[1].nombre}
+                </h3>
+                {grupoStats.h2h.pj === 0 ? (
+                  <p>No se enfrentaron en ningun partido con los filtros seleccionados.</p>
+                ) : (
+                  <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...thStyle, textAlign: "left" }}>Jugador</th>
+                        <th style={thStyle}>PJ enfrentados</th>
+                        <th style={thStyle}>V</th>
+                        <th style={thStyle}>E</th>
+                        <th style={thStyle}>D</th>
+                        <th style={thStyle}>%V</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td style={tdStyle}>
+                          <Link href={`/jugadores/${grupoStats.h2h.jugadores[0].playerId}`}>
+                            {grupoStats.h2h.jugadores[0].apodo ?? grupoStats.h2h.jugadores[0].nombre}
+                          </Link>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.pj}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.v}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.e}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.d}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.pctV}%</td>
+                      </tr>
+                      <tr>
+                        <td style={tdStyle}>
+                          <Link href={`/jugadores/${grupoStats.h2h.jugadores[1].playerId}`}>
+                            {grupoStats.h2h.jugadores[1].apodo ?? grupoStats.h2h.jugadores[1].nombre}
+                          </Link>
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.pj}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.d}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.e}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{grupoStats.h2h.v}</td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>{100 - grupoStats.h2h.pctV - (grupoStats.h2h.e > 0 ? Math.round((grupoStats.h2h.e / grupoStats.h2h.pj) * 100) : 0)}%</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+
             {/* Stats individuales comparados */}
             <h3>Estadísticas individuales comparadas</h3>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
