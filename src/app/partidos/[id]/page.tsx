@@ -133,7 +133,6 @@ export default async function PartidoPage({ params }: { params: { id: string } }
                   )}
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 500 }}>{displayNames.get(ps.player.id) ?? ps.player.nombre}</div>
-                    {ps.player.apodo && <div style={{ fontSize: 12, color: "#666" }}>"{ps.player.apodo}"</div>}
                   </div>
                   {partido.mvpId === ps.player.id && <span>⭐</span>}
                 </Link>
