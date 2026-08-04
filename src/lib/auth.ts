@@ -1,58 +1,53 @@
-// src/lib/auth.ts
-// Configuración de NextAuth con login por usuario/contraseña
-// Un solo usuario admin por ahora, preparado para múltiples roles
-
-import { NextAuthOptions } from "next-auth";
-import CredentialsProvider from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import type { NextAuthOptions } from "next-auth";
+import GoogleProvider from "next-auth/providers/google";
 import { prisma } from "./prisma";
+import { parseSuperadminEmails } from "@/features/auth/permissions";
+
+const googleClientId = process.env.GOOGLE_CLIENT_ID ?? "google-client-id-not-configured";
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET ?? "google-client-secret-not-configured";
+
+export const isGoogleAuthConfigured =
+  Boolean(process.env.GOOGLE_CLIENT_ID) && Boolean(process.env.GOOGLE_CLIENT_SECRET);
+
+async function promoteConfiguredSuperadmin(user: { id: string; email?: string | null }) {
+  if (!user.email) return;
+  const superadmins = parseSuperadminEmails(process.env.SUPERADMIN_EMAILS);
+  if (!superadmins.has(user.email.toLowerCase())) return;
+  await prisma.user.updateMany({
+    where: { id: user.id, role: { not: "SUPERADMIN" } },
+    data: { role: "SUPERADMIN" },
+  });
+}
 
 export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
   providers: [
-    CredentialsProvider({
-      name: "credentials",
-      credentials: {
-        username: { label: "Usuario", type: "text" },
-        password: { label: "Contraseña", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.username || !credentials?.password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { username: credentials.username },
-        });
-        if (!user) return null;
-
-        const passwordOk = await bcrypt.compare(
-          credentials.password,
-          user.passwordHash
-        );
-        if (!passwordOk) return null;
-
-        return {
-          id: String(user.id),
-          name: user.username,
-          role: user.role,
-        };
-      },
+    GoogleProvider({
+      clientId: googleClientId,
+      clientSecret: googleClientSecret,
     }),
   ],
+  session: { strategy: "database" },
   callbacks: {
-    // Guarda el rol en el token JWT
-    jwt({ token, user }) {
-      if (user) token.role = (user as any).role;
-      return token;
+    async signIn({ user }) {
+      return Boolean(user.email);
     },
-    // Expone el rol en la sesión del cliente
-    session({ session, token }) {
-      if (session.user) (session.user as any).role = token.role;
+    async session({ session, user }) {
+      if (session.user) {
+        session.user.id = user.id;
+        session.user.role = user.role;
+        session.user.playerId = user.playerId;
+      }
       return session;
     },
   },
-  pages: {
-    signIn: "/admin/login",
-  },
-  session: {
-    strategy: "jwt",
+  events: {
+    async createUser({ user }) {
+      await promoteConfiguredSuperadmin(user);
+    },
+    async signIn({ user }) {
+      await promoteConfiguredSuperadmin(user);
+    },
   },
 };

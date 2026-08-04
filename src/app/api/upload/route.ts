@@ -5,16 +5,11 @@
 // Solo accesible por admin
 
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { requireRole, authErrorStatus } from "@/features/auth/session";
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any)?.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
   try {
+    await requireRole("ADMIN");
     const { imagen } = await req.json();
 
     if (!imagen) {
@@ -22,6 +17,12 @@ export async function POST(req: NextRequest) {
         { error: "No se recibió imagen" },
         { status: 400 }
       );
+    }
+    if (typeof imagen !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(imagen)) {
+      return NextResponse.json({ error: "Formato de imagen inválido" }, { status: 400 });
+    }
+    if (imagen.length > 7 * 1024 * 1024) {
+      return NextResponse.json({ error: "La imagen supera el límite permitido" }, { status: 413 });
     }
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
@@ -38,11 +39,11 @@ export async function POST(req: NextRequest) {
     // Subir a Cloudinary via API REST (sin SDK para no agregar dependencias)
     const timestamp = Math.floor(Date.now() / 1000);
 
-    // Firma: sha1(folder=jugadores&timestamp=...&api_secret)
+    // Firma Cloudinary por defecto: sha1(folder=jugadores&timestamp=...&api_secret)
     const crypto = await import("crypto");
     const toSign = `folder=jugadores&timestamp=${timestamp}${apiSecret}`;
     const signature = crypto
-      .createHash("sha256")
+      .createHash("sha1")
       .update(toSign)
       .digest("hex");
 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     console.error("Error en upload:", error);
     return NextResponse.json(
       { error: "Error interno al procesar imagen" },
-      { status: 500 }
+      { status: authErrorStatus(error) }
     );
   }
 }

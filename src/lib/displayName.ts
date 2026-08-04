@@ -1,61 +1,49 @@
-// src/lib/displayName.ts
-// Calcula el nombre a mostrar de un jugador dado el contexto de todos los jugadores
-//
-// Lógica:
-// 1. Usar apodo si tiene, sino el primer nombre
-// 2. Si ese valor se repite entre otros jugadores, agregar la primera letra del apellido
-//    El apellido se extrae del campo "nombre" tomando la última palabra
-
-type PlayerMin = {
-  id: number;
-  nombre: string;
-  apodo: string | null;
+export type PlayerName = {
+  firstName: string;
+  lastName?: string | null;
+  nickname?: string | null;
+  legacyFullName?: string | null;
 };
 
-// Extrae la primera letra del apellido a partir del campo nombre completo
-// Ej: "Pedro Javier Amor" → "A"
-// Ej: "Samiro" → "" (no hay apellido)
-function primeraLetraApellido(nombre: string): string {
-  const partes = nombre.trim().split(/\s+/);
-  if (partes.length < 2) return "";
-  const apellido = partes[partes.length - 1];
-  return apellido[0].toUpperCase() + ".";
+export function formatPlayerName(player: PlayerName): string {
+  const firstName = player.firstName.trim() || player.legacyFullName?.trim() || "Sin nombre";
+  const lastName = player.lastName?.trim();
+  const nickname = player.nickname?.trim();
+  return [firstName, nickname ? `"${nickname}"` : null, lastName].filter(Boolean).join(" ");
 }
 
-// Calcula el nombre base a mostrar (apodo o primer nombre)
-function nombreBase(jugador: PlayerMin): string {
-  if (jugador.apodo?.trim()) return jugador.apodo.trim();
-  return jugador.nombre.trim().split(/\s+/)[0];
+export function fullPlayerName(player: PlayerName): string {
+  const firstName = player.firstName.trim() || player.legacyFullName?.trim() || "Sin nombre";
+  const lastName = player.lastName?.trim();
+  return [firstName, lastName].filter(Boolean).join(" ");
 }
 
-// Calcula el nombre a mostrar para UN jugador dado el contexto de todos
-export function displayName(jugador: PlayerMin, todos: PlayerMin[]): string {
-  const base = nombreBase(jugador);
-
-  // Verificar si otro jugador tiene el mismo nombre base
-  const hayRepeticion = todos.some(
-    (otro) => otro.id !== jugador.id && nombreBase(otro) === base
-  );
-
-  if (!hayRepeticion) return base;
-
-  // Agregar primera letra del apellido
-  const inicial = primeraLetraApellido(jugador.nombre);
-  return inicial ? `${base} ${inicial}` : base;
+export function shortPlayerName(player: PlayerName): string {
+  return player.nickname?.trim() || player.firstName.trim() || player.legacyFullName?.trim() || "Sin nombre";
 }
 
-// Versión para usar sin contexto completo (cuando solo tenés un jugador)
-// Útil en fichas individuales donde no importa la colisión
-export function displayNameSingle(jugador: PlayerMin): string {
-  return nombreBase(jugador);
+export function playerGivenName(player: PlayerName): string {
+  const source = player.firstName.trim() || player.legacyFullName?.trim() || "Sin nombre";
+  return source.split(/\s+/)[0];
 }
 
-// Precalcula un mapa id → displayName para usar en listas
-// Más eficiente que llamar displayName() por cada jugador en un loop
-export function buildDisplayNames(todos: PlayerMin[]): Map<number, string> {
-  const map = new Map<number, string>();
-  for (const j of todos) {
-    map.set(j.id, displayName(j, todos));
-  }
-  return map;
+export function playerGivenNameKey(player: PlayerName): string {
+  return playerGivenName(player).normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+export function lineupPlayerName(player: PlayerName, repeatedGivenNames: Set<string>): string {
+  const nickname = player.nickname?.trim();
+  if (nickname) return nickname;
+
+  const givenName = playerGivenName(player);
+  if (!repeatedGivenNames.has(playerGivenNameKey(player))) return givenName;
+
+  const surname = player.lastName?.trim();
+  return surname ? `${givenName} ${surname.charAt(0).toUpperCase()}.` : givenName;
+}
+
+export function splitLastName(fullName: string) {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return null;
+  return { firstName: parts.slice(0, -1).join(" "), lastName: parts.at(-1)! };
 }

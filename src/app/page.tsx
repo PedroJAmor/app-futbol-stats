@@ -1,195 +1,31 @@
-// src/app/page.tsx
 import Link from "next/link";
+import MatchCard from "@/components/MatchCard";
+import PlayerForm from "@/components/PlayerForm";
+import { getCurrentUser } from "@/features/auth/session";
 import { prisma } from "@/lib/prisma";
-import { calcularStats, statsParaHome } from "@/lib/stats";
-import { buildDisplayNames } from "@/lib/displayName";
+import { calculateStats, statsForHome } from "@/lib/stats";
+import { formatPlayerName } from "@/lib/displayName";
+import { formatArgentinaDate } from "@/lib/dates";
 
-export const revalidate = 60; // refresca cada 60 segundos
-
-async function getData() {
-  const [rawStats, totalPartidos, ultimosPartidos] = await Promise.all([
-    prisma.matchPlayerStat.findMany({
-      include: {
-        player: { select: { id: true, nombre: true, apodo: true, foto: true } },
-        team: {
-          select: {
-            id: true,
-            resultado: true,
-            match: { select: { id: true, formato: true, fecha: true } },
-          },
-        },
-      },
-    }),
-    prisma.match.count(),
-    prisma.match.findMany({
-      take: 3,
-      orderBy: { fecha: "desc" },
-      include: {
-        teams: {
-          include: {
-            players: {
-              include: {
-                player: { select: { id: true, nombre: true, apodo: true } },
-              },
-            },
-          },
-        },
-      },
-    }),
-  ]);
-
-  const allStats = calcularStats(rawStats);
-  const todosJugadores = allStats.map(s => ({ id: s.playerId, nombre: s.nombre, apodo: s.apodo }));
-  const displayNames = buildDisplayNames(todosJugadores);
-  const topPuntos = [...allStats].sort((a, b) => b.pts - a.pts).slice(0, 10);
-  const topPctV = statsParaHome(allStats, totalPartidos);
-
-  return { topPuntos, topPctV, ultimosPartidos, totalPartidos, displayNames };
-}
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const { topPuntos, topPctV, ultimosPartidos, totalPartidos, displayNames } = await getData();
-
+  const user = await getCurrentUser();
+  const [latestMatches, rawStats, myParticipations] = await Promise.all([
+    prisma.match.findMany({ where: { isHidden: false }, take: 3, orderBy: { playedAt: "desc" }, include: { teams: { orderBy: { side: "asc" } }, mvp: true } }),
+    prisma.matchParticipation.findMany({ where: { match: { isHidden: false } }, include: { player: true, team: { include: { match: true } } } }),
+    user?.playerId ? prisma.matchParticipation.findMany({ where: { playerId: user.playerId, match: { isHidden: false } }, take: 5, orderBy: { match: { playedAt: "desc" } }, include: { team: true, match: true } }) : [],
+  ]);
+  const ranking = statsForHome(calculateStats(rawStats));
   return (
-    <div>
-      <h1>⚽ Fútbol Amigos</h1>
-
-      <div style={{ display: "flex", gap: 12, marginBottom: 32 }}>
-        <Link href="/partidos">
-          <button>Ver partidos</button>
-        </Link>
-        <Link href="/jugadores">
-          <button>Ver jugadores</button>
-        </Link>
-        <Link href="/estadisticas">
-          <button>Estadísticas avanzadas</button>
-        </Link>
-      </div>
-
-      {/* Últimos partidos */}
-      <section style={{ marginBottom: 40 }}>
-        <h2>Últimos partidos</h2>
-        {ultimosPartidos.length === 0 ? (
-          <p>No hay partidos registrados todavía.</p>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {ultimosPartidos.map((p) => {
-              const equipoGanador = p.teams.find((t) => t.resultado === "WIN");
-              const esEmpate = p.teams.every((t) => t.resultado === "DRAW");
-              return (
-                <Link key={p.id} href={`/partidos/${p.id}`} style={{ textDecoration: "none", color: "inherit" }}>
-                  <div style={{ border: "1px solid #ccc", borderRadius: 8, padding: 16 }}>
-                    <div>
-                      <strong>
-                        {p.teams[0]?.color} vs {p.teams[1]?.color}
-                      </strong>{" "}
-                      — F{p.formato}
-                    </div>
-                    <div style={{ fontSize: 14, color: "#555" }}>
-                      {new Date(p.fecha).toLocaleDateString("es-AR", {
-                        day: "numeric", month: "long", year: "numeric",
-                      })}{" "}
-                      {new Date(p.fecha).toLocaleTimeString("es-AR", {
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </div>
-                    <div style={{ marginTop: 4 }}>
-                      {esEmpate
-                        ? "Empate"
-                        : equipoGanador
-                        ? `Ganó: ${equipoGanador.color}`
-                        : ""}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        )}
+    <div className="page home-page">
+      <section className="page-intro"><p className="eyebrow">Fútbol Amigos</p><h1>¡Hola, {user?.name?.split(" ")[0] ?? "equipo"}!</h1><p className="muted">Partidos y estadísticas del grupo.</p>{user?.playerId && <Link className="my-player-link" href={`/jugadores/${user.playerId}`}>Ver mi ficha →</Link>}</section>
+      <section className="stack home-personal">
+        <h2>Tus últimos 5 partidos</h2>
+        {!user?.playerId ? <div className="card">Tu cuenta todavía no está vinculada a un jugador.</div> : myParticipations.length ? <div className="card"><PlayerForm items={myParticipations.map((item) => ({ id: item.id, result: item.team.result, href: `/partidos/${item.matchId}`, title: `${formatArgentinaDate(item.match.playedAt)} · ${item.team.color}` }))} /></div> : <div className="card">Todavía no tenés partidos registrados.</div>}
       </section>
-
-      {/* Tablas */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
-        {/* Tabla de puntos */}
-        <section>
-          <h2>Tabla de puntos</h2>
-          {topPuntos.length === 0 ? (
-            <p>Sin datos.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>#</th>
-                  <th style={{ ...thStyle, textAlign: "left" }}>Jugador</th>
-                  <th style={thStyle}>PJ</th>
-                  <th style={thStyle}>Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topPuntos.map((j, i) => (
-                  <tr key={j.playerId}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>
-                      <Link href={`/jugadores/${j.playerId}`}>
-                        {displayNames.get(j.playerId) ?? j.nombre}
-                      </Link>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>{j.pts}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-
-        {/* Tabla de % victorias */}
-        <section>
-          <h2>% Victorias</h2>
-          {totalPartidos < 1 ? (
-            <p>Sin datos.</p>
-          ) : topPctV.length === 0 ? (
-            <p>Aún no hay jugadores con 3 o más partidos.</p>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>#</th>
-                  <th style={{ ...thStyle, textAlign: "left" }}>Jugador</th>
-                  <th style={thStyle}>PJ</th>
-                  <th style={thStyle}>%V</th>
-                </tr>
-              </thead>
-              <tbody>
-                {topPctV.map((j, i) => (
-                  <tr key={j.playerId}>
-                    <td style={tdStyle}>{i + 1}</td>
-                    <td style={tdStyle}>
-                      <Link href={`/jugadores/${j.playerId}`}>
-                        {displayNames.get(j.playerId) ?? j.nombre}
-                      </Link>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>{j.pj}</td>
-                    <td style={{ ...tdStyle, textAlign: "center" }}>{j.pctV}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-      </div>
+      <section className="stack"><h2>Últimos partidos</h2>{latestMatches.map((match) => <MatchCard key={match.id} match={match} />)}</section>
+      <section><h2>Porcentaje de victorias</h2><p className="section-note">Participan quienes jugaron al menos un quinto de los PJ del jugador con más presencias.</p><div className="table-scroll ranking-table"><table><thead><tr><th>Pos.</th><th>Jugador</th><th>PJ</th><th>V</th><th>%V</th></tr></thead><tbody>{ranking.map((stat, index) => <tr key={stat.playerId}><td>{index + 1}</td><td>{formatPlayerName(stat)}</td><td>{stat.pj}</td><td>{stat.v}</td><td>{stat.pctV}%</td></tr>)}</tbody></table></div></section>
     </div>
   );
 }
-
-const thStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  borderBottom: "2px solid #ccc",
-  textAlign: "center",
-  fontSize: 13,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: "8px 10px",
-  borderBottom: "1px solid #eee",
-};

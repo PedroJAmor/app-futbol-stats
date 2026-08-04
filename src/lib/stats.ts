@@ -1,15 +1,44 @@
-// src/lib/stats.ts
-// Toda la logica de estadisticas: puntos, porcentajes, filtros y comparacion de jugadores
+export const POINTS = { WIN: 4, DRAW: 2, LOSS: 1 } as const;
 
-export const PUNTOS = { WIN: 4, DRAW: 2, LOSS: 1 } as const;
+export type ClassicForm = {
+  score: number;
+  direction: "up" | "up-right" | "neutral" | "down-right" | "down";
+  symbol: "↑" | "↗" | "→" | "↘" | "↓";
+  label: string;
+};
 
-// ---- Tipos ----
+export function calculateClassicForm(results: string[]): ClassicForm {
+  const score = results.slice(0, 5).reduce((total, result) => total + (result === "WIN" ? 1 : result === "LOSS" ? -1 : 0), 0);
+  if (score >= 4) return { score, direction: "up", symbol: "↑", label: "Excelente" };
+  if (score >= 2) return { score, direction: "up-right", symbol: "↗", label: "Buena" };
+  if (score >= -1) return { score, direction: "neutral", symbol: "→", label: "Normal" };
+  if (score >= -3) return { score, direction: "down-right", symbol: "↘", label: "Baja" };
+  return { score, direction: "down", symbol: "↓", label: "Muy baja" };
+}
+
+export type RawStat = {
+  player: {
+    id: number;
+    firstName: string;
+    lastName: string | null;
+    nickname: string | null;
+    legacyFullName: string | null;
+    photoUrl: string | null;
+  };
+  team: {
+    id: number;
+    result: string;
+    match: { id: number; format: number; playedAt: Date; isHidden: boolean };
+  };
+};
 
 export type PlayerStats = {
   playerId: number;
-  nombre: string;
-  apodo: string | null;
-  foto: string | null;
+  firstName: string;
+  lastName: string | null;
+  nickname: string | null;
+  legacyFullName: string | null;
+  photoUrl: string | null;
   pj: number;
   v: number;
   e: number;
@@ -19,287 +48,102 @@ export type PlayerStats = {
   pctD: number;
 };
 
-export type StatsFilter = {
-  formato?: number;
-  fechaDesde?: string;
-  fechaHasta?: string;
-  pjMinimo?: number;
-};
+export type StatsFilter = { format?: number; dateFrom?: string; dateTo?: string; minimumMatches?: number };
 
-export type RawStat = {
-  player: { id: number; nombre: string; apodo: string | null; foto: string | null };
-  team: {
-    id: number;
-    resultado: string;
-    match: { id: number; formato: number; fecha: Date };
-  };
-};
-
-export type GrupoStats = {
-  juntos: {
-    pj: number;
-    v: number;
-    e: number;
-    d: number;
-    pctV: number;
-    pctD: number;
-  };
-  participacion: Record<
-    number,
-    {
-      playerId: number;
-      nombre: string;
-      apodo: string | null;
-      pjConGrupo: number;
-      pjTotal: number;
-      pctConGrupo: number;
-    }
-  >;
-  statsIndividuales: PlayerStats[];
-  // Solo cuando son exactamente 2 jugadores
-  h2h: {
-    pj: number;
-    v: number;    // victorias del jugador [0]
-    e: number;
-    d: number;    // derrotas del jugador [0] = victorias del [1]
-    pctV: number;
-    jugadores: [
-      { playerId: number; nombre: string; apodo: string | null },
-      { playerId: number; nombre: string; apodo: string | null }
-    ];
-  } | null;
-};
-
-// ---- Filtro para queries de Prisma ----
-
-export function buildMatchWhere(filter: StatsFilter) {
-  const matchWhere: Record<string, any> = {};
-
-  if (filter.formato) {
-    matchWhere.formato = filter.formato;
+export function buildPublicMatchWhere(filter: StatsFilter = {}) {
+  const where: Record<string, unknown> = { isHidden: false };
+  if (filter.format) where.format = filter.format;
+  if (filter.dateFrom || filter.dateTo) {
+    where.playedAt = {
+      ...(filter.dateFrom && { gte: new Date(`${filter.dateFrom}T00:00:00-03:00`) }),
+      ...(filter.dateTo && { lte: new Date(`${filter.dateTo}T23:59:59.999-03:00`) }),
+    };
   }
-
-  if (filter.fechaDesde || filter.fechaHasta) {
-    matchWhere.fecha = {};
-    if (filter.fechaDesde) {
-      matchWhere.fecha.gte = new Date(filter.fechaDesde);
-    }
-    if (filter.fechaHasta) {
-      const hasta = new Date(filter.fechaHasta);
-      hasta.setHours(23, 59, 59, 999);
-      matchWhere.fecha.lte = hasta;
-    }
-  }
-
-  return matchWhere;
+  return where;
 }
 
-// ---- Calculo de estadisticas individuales ----
-
-export function calcularStats(
-  rawStats: RawStat[],
-  pjMinimo = 0
-): PlayerStats[] {
-  const map = new Map<number, PlayerStats>();
-
-  for (const stat of rawStats) {
-    const { player, team } = stat;
-
-    if (!map.has(player.id)) {
-      map.set(player.id, {
-        playerId: player.id,
-        nombre: player.nombre,
-        apodo: player.apodo,
-        foto: player.foto,
-        pj: 0, v: 0, e: 0, d: 0, pts: 0, pctV: 0, pctD: 0,
-      });
-    }
-
-    const s = map.get(player.id)!;
-    s.pj++;
-
-    if (team.resultado === "WIN") {
-      s.v++;
-      s.pts += PUNTOS.WIN;
-    } else if (team.resultado === "DRAW") {
-      s.e++;
-      s.pts += PUNTOS.DRAW;
-    } else {
-      s.d++;
-      s.pts += PUNTOS.LOSS;
-    }
+export function calculateStats(rawStats: RawStat[], minimumMatches = 0) {
+  const stats = new Map<number, PlayerStats>();
+  for (const { player, team } of rawStats) {
+    if (team.match.isHidden) continue;
+    const current = stats.get(player.id) ?? {
+      playerId: player.id,
+      firstName: player.firstName,
+      lastName: player.lastName,
+      nickname: player.nickname,
+      legacyFullName: player.legacyFullName,
+      photoUrl: player.photoUrl,
+      pj: 0, v: 0, e: 0, d: 0, pts: 0, pctV: 0, pctD: 0,
+    };
+    current.pj++;
+    if (team.result === "WIN") { current.v++; current.pts += POINTS.WIN; }
+    else if (team.result === "DRAW") { current.e++; current.pts += POINTS.DRAW; }
+    else { current.d++; current.pts += POINTS.LOSS; }
+    stats.set(player.id, current);
   }
-
-  return Array.from(map.values())
-    .filter((s) => s.pj >= pjMinimo)
-    .map((s) => ({
-      ...s,
-      pctV: s.pj > 0 ? Math.round((s.v / s.pj) * 100) : 0,
-      pctD: s.pj > 0 ? Math.round((s.d / s.pj) * 100) : 0,
+  return [...stats.values()]
+    .filter((stat) => stat.pj >= minimumMatches)
+    .map((stat) => ({
+      ...stat,
+      pctV: stat.pj ? Math.round((stat.v / stat.pj) * 100) : 0,
+      pctD: stat.pj ? Math.round((stat.d / stat.pj) * 100) : 0,
     }));
 }
 
-// ---- Tabla del home ----
-
-export function statsParaHome(
-  allStats: PlayerStats[],
-  totalPartidos: number
-): PlayerStats[] {
-  const MIN_PARTIDOS_TOTALES = 10;
-  const MIN_PJ_JUGADOR = 5;
-  const aplicarFiltro = totalPartidos >= MIN_PARTIDOS_TOTALES;
-
-  return allStats
-    .filter((s) => !aplicarFiltro || s.pj >= MIN_PJ_JUGADOR)
-    .sort((a, b) => b.pctV - a.pctV)
+export function statsForHome(allStats: PlayerStats[]) {
+  const mostMatches = Math.max(0, ...allStats.map((stat) => stat.pj));
+  const minimumMatches = Math.ceil(mostMatches / 5);
+  return [...allStats]
+    .filter((stat) => stat.pj >= minimumMatches)
+    .sort((a, b) => b.pctV - a.pctV || b.pj - a.pj || b.pts - a.pts)
     .slice(0, 10);
 }
 
-// ---- Estadisticas de grupo (2+ jugadores juntos) ----
-
-export function calcularStatsGrupo(
-  playerIds: number[],
-  rawStats: RawStat[]
-): GrupoStats {
-  if (playerIds.length < 2) {
-    throw new Error("Se necesitan al menos 2 jugadores para comparar");
+export function calculateGroupStats(playerIds: number[], rawStats: RawStat[]) {
+  if (playerIds.length < 2) throw new Error("Se necesitan al menos 2 jugadores");
+  const visible = rawStats.filter((row) => !row.team.match.isHidden);
+  const byMatchTeam = new Map<string, RawStat[]>();
+  for (const row of visible) {
+    const key = `${row.team.match.id}:${row.team.id}`;
+    byMatchTeam.set(key, [...(byMatchTeam.get(key) ?? []), row]);
   }
-
-  // Mapa: "${matchId}-${teamId}" -> Set de playerIds en ese equipo
-  const matchTeamPlayers = new Map<string, Set<number>>();
-
-  for (const stat of rawStats) {
-    const key = `${stat.team.match.id}-${stat.team.id}`;
-    if (!matchTeamPlayers.has(key)) {
-      matchTeamPlayers.set(key, new Set());
-    }
-    matchTeamPlayers.get(key)!.add(stat.player.id);
-  }
-
-  // Partidos donde TODOS los seleccionados estuvieron en el mismo equipo
-  const equiposJuntos: Array<{ resultado: string; matchId: number }> = [];
-
-  for (const [key, playersEnEquipo] of Array.from(matchTeamPlayers.entries())) {
-    const todosPresentes = playerIds.every((id) => playersEnEquipo.has(id));
-    if (!todosPresentes) continue;
-
-    const [matchIdStr, teamIdStr] = key.split("-");
-    const matchId = Number(matchIdStr);
-    const teamId = Number(teamIdStr);
-
-    const statRef = rawStats.find(
-      (s) => s.team.match.id === matchId && s.team.id === teamId && playerIds.includes(s.player.id)
-    );
-
-    if (statRef) {
-      equiposJuntos.push({ resultado: statRef.team.resultado, matchId });
-    }
-  }
-
-  // Stats del grupo jugando juntos
-  const juntos = { pj: 0, v: 0, e: 0, d: 0, pctV: 0, pctD: 0 };
-  const matchIdsJuntos = new Set(equiposJuntos.map((e) => e.matchId));
-
-  for (const eq of equiposJuntos) {
-    juntos.pj++;
-    if (eq.resultado === "WIN") juntos.v++;
-    else if (eq.resultado === "DRAW") juntos.e++;
-    else juntos.d++;
-  }
-
-  juntos.pctV = juntos.pj > 0 ? Math.round((juntos.v / juntos.pj) * 100) : 0;
-  juntos.pctD = juntos.pj > 0 ? Math.round((juntos.d / juntos.pj) * 100) : 0;
-
-  // Participacion cruzada
-  const pjPorJugador = new Map<number, number>();
-  const infoJugador = new Map<number, { nombre: string; apodo: string | null }>();
-
-  for (const stat of rawStats) {
-    if (!playerIds.includes(stat.player.id)) continue;
-    const id = stat.player.id;
-    pjPorJugador.set(id, (pjPorJugador.get(id) ?? 0) + 1);
-    if (!infoJugador.has(id)) {
-      infoJugador.set(id, { nombre: stat.player.nombre, apodo: stat.player.apodo });
-    }
-  }
-
-  const participacion: GrupoStats["participacion"] = {};
-  for (const id of playerIds) {
-    const pjTotal = pjPorJugador.get(id) ?? 0;
-    const info = infoJugador.get(id) ?? { nombre: "Desconocido", apodo: null };
-    participacion[id] = {
-      playerId: id,
-      nombre: info.nombre,
-      apodo: info.apodo,
-      pjConGrupo: matchIdsJuntos.size,
-      pjTotal,
-      pctConGrupo: pjTotal > 0 ? Math.round((matchIdsJuntos.size / pjTotal) * 100) : 0,
-    };
-  }
-
-  // Stats individuales
-  const statsIndividuales = calcularStats(
-    rawStats.filter((s) => playerIds.includes(s.player.id))
+  const togetherRows = [...byMatchTeam.values()].filter((rows) =>
+    playerIds.every((id) => rows.some((row) => row.player.id === id))
   );
-
-  // ---- Head to head (solo para 2 jugadores) ----
-  let h2h: GrupoStats["h2h"] = null;
-
-  if (playerIds.length === 2) {
-    const [idA, idB] = playerIds;
-
-    const infoA = infoJugador.get(idA) ?? { nombre: "Jugador A", apodo: null };
-    const infoB = infoJugador.get(idB) ?? { nombre: "Jugador B", apodo: null };
-
-    // Agrupar stats por partido y equipo para encontrar enfrentamientos
-    // matchId -> { teamId -> playerIds[] }
-    const matchTeams = new Map<number, Map<number, number[]>>();
-
-    for (const stat of rawStats) {
-      const matchId = stat.team.match.id;
-      if (!matchTeams.has(matchId)) matchTeams.set(matchId, new Map());
-      const teams = matchTeams.get(matchId)!;
-      if (!teams.has(stat.team.id)) teams.set(stat.team.id, []);
-      teams.get(stat.team.id)!.push(stat.player.id);
-    }
-
-    let h2hPj = 0, h2hV = 0, h2hE = 0, h2hD = 0;
-
-    for (const [matchId, teams] of Array.from(matchTeams.entries())) {
-      const teamEntries = Array.from(teams.entries());
-
-      // Buscar el equipo de A y el equipo de B en este partido
-      const teamDeA = teamEntries.find(([, players]) => players.includes(idA));
-      const teamDeB = teamEntries.find(([, players]) => players.includes(idB));
-
-      // Si no estan en equipos distintos, no es enfrentamiento
-      if (!teamDeA || !teamDeB) continue;
-      if (teamDeA[0] === teamDeB[0]) continue; // mismo equipo, no cuenta
-
-      h2hPj++;
-
-      // Resultado desde la perspectiva de A
-      const resultadoDeA = rawStats.find(
-        (s) => s.team.match.id === matchId && s.team.id === teamDeA[0] && s.player.id === idA
-      )?.team.resultado;
-
-      if (resultadoDeA === "WIN") h2hV++;
-      else if (resultadoDeA === "DRAW") h2hE++;
-      else h2hD++;
-    }
-
-    h2h = {
-      pj: h2hPj,
-      v: h2hV,
-      e: h2hE,
-      d: h2hD,
-      pctV: h2hPj > 0 ? Math.round((h2hV / h2hPj) * 100) : 0,
-      jugadores: [
-        { playerId: idA, nombre: infoA.nombre, apodo: infoA.apodo },
-        { playerId: idB, nombre: infoB.nombre, apodo: infoB.apodo },
-      ],
-    };
+  const together = { pj: togetherRows.length, v: 0, e: 0, d: 0, pctV: 0, pctD: 0 };
+  for (const rows of togetherRows) {
+    const result = rows[0].team.result;
+    if (result === "WIN") together.v++;
+    else if (result === "DRAW") together.e++;
+    else together.d++;
   }
+  together.pctV = together.pj ? Math.round((together.v / together.pj) * 100) : 0;
+  together.pctD = together.pj ? Math.round((together.d / together.pj) * 100) : 0;
 
-  return { juntos, participacion, statsIndividuales, h2h };
+  const togetherMatches = new Set(togetherRows.map((rows) => rows[0].team.match.id));
+  const participation = Object.fromEntries(playerIds.map((id) => {
+    const rows = visible.filter((row) => row.player.id === id);
+    const total = new Set(rows.map((row) => row.team.match.id)).size;
+    return [id, { playerId: id, matchesWithGroup: togetherMatches.size, totalMatches: total, percentage: total ? Math.round((togetherMatches.size / total) * 100) : 0 }];
+  }));
+
+  let headToHead = null;
+  if (playerIds.length === 2) {
+    const [a, b] = playerIds;
+    const matches = new Map<number, RawStat[]>();
+    for (const row of visible) matches.set(row.team.match.id, [...(matches.get(row.team.match.id) ?? []), row]);
+    const h2h = { pj: 0, v: 0, e: 0, d: 0, pctV: 0 };
+    for (const rows of matches.values()) {
+      const aRow = rows.find((row) => row.player.id === a);
+      const bRow = rows.find((row) => row.player.id === b);
+      if (!aRow || !bRow || aRow.team.id === bRow.team.id) continue;
+      h2h.pj++;
+      if (aRow.team.result === "WIN") h2h.v++;
+      else if (aRow.team.result === "DRAW") h2h.e++;
+      else h2h.d++;
+    }
+    h2h.pctV = h2h.pj ? Math.round((h2h.v / h2h.pj) * 100) : 0;
+    headToHead = h2h;
+  }
+  return { together, participation, individual: calculateStats(visible.filter((row) => playerIds.includes(row.player.id))), headToHead };
 }

@@ -1,129 +1,49 @@
-// src/app/api/jugadores/[id]/route.ts
-// GET    /api/jugadores/:id   → ficha completa del jugador con sus partidos
-// PUT    /api/jugadores/:id   → edita datos del jugador (solo admin)
-// DELETE /api/jugadores/:id   → desactiva el jugador (solo admin, no borra para preservar historial)
-
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { requireRole, authErrorStatus } from "@/features/auth/session";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);
-  if (isNaN(id)) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
-  try {
-    const jugador = await prisma.player.findUnique({
-      where: { id },
-      include: {
-        stats: {
-          include: {
-            team: {
-              include: {
-                match: {
-                  select: {
-                    id: true,
-                    fecha: true,
-                    formato: true,
-                    cancha: true,
-                    mvpId: true,
-                  },
-                },
-              },
-            },
-          },
-          orderBy: { team: { match: { fecha: "desc" } } },
-        },
+  if (!Number.isInteger(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+  const player = await prisma.player.findFirst({
+    where: { id, isHidden: false },
+    include: {
+      participations: {
+        where: { match: { isHidden: false } },
+        include: { team: true, match: true },
+        orderBy: { match: { playedAt: "desc" } },
       },
-    });
-
-    if (!jugador) {
-      return NextResponse.json(
-        { error: "Jugador no encontrado" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(jugador);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Error al obtener jugador" },
-      { status: 500 }
-    );
-  }
+    },
+  });
+  return player ? NextResponse.json(player) : NextResponse.json({ error: "Jugador no encontrado" }, { status: 404 });
 }
 
-export async function PUT(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any)?.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const id = Number(params.id);
-  if (isNaN(id)) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const body = await req.json();
-    const { nombre, apodo, foto, fechaNac, activo } = body;
-
-    const jugador = await prisma.player.update({
+    await requireRole("ADMIN");
+    const id = Number(params.id);
+    const body = await request.json();
+    if (body.isHidden === true) {
+      const participations = await prisma.matchParticipation.count({ where: { playerId: id } });
+      if (participations) return NextResponse.json({ error: "No se puede ocultar un jugador con historial" }, { status: 409 });
+    }
+    return NextResponse.json(await prisma.player.update({
       where: { id },
       data: {
-        ...(nombre !== undefined && { nombre: nombre.trim() }),
-        ...(apodo !== undefined && { apodo: apodo?.trim() || null }),
-        ...(foto !== undefined && { foto }),
-        ...(fechaNac !== undefined && {
-          fechaNac: fechaNac ? new Date(fechaNac) : null,
-        }),
-        ...(activo !== undefined && { activo }),
+        ...(body.firstName !== undefined && { firstName: body.firstName.trim() }),
+        ...(body.lastName !== undefined && { lastName: body.lastName?.trim() || null }),
+        ...(body.nickname !== undefined && { nickname: body.nickname?.trim() || null }),
+        ...(body.photoUrl !== undefined && { photoUrl: body.photoUrl || null }),
+        ...(body.birthDate !== undefined && { birthDate: body.birthDate ? new Date(`${body.birthDate}T12:00:00Z`) : null }),
+        ...(body.isActive !== undefined && { isActive: Boolean(body.isActive) }),
+        ...(body.isHidden !== undefined && { isHidden: Boolean(body.isHidden) }),
       },
-    });
-
-    return NextResponse.json(jugador);
+    }));
   } catch (error) {
-    return NextResponse.json(
-      { error: "Error al actualizar jugador" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "No se pudo actualizar el jugador" }, { status: authErrorStatus(error) });
   }
 }
 
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  const session = await getServerSession(authOptions);
-  if (!session || (session.user as any)?.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const id = Number(params.id);
-  if (isNaN(id)) {
-    return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  }
-
-  try {
-    // Desactivar en lugar de borrar para preservar el historial de partidos
-    const jugador = await prisma.player.update({
-      where: { id },
-      data: { activo: false },
-    });
-
-    return NextResponse.json(jugador);
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Error al desactivar jugador" },
-      { status: 500 }
-    );
-  }
+export async function DELETE(_: NextRequest, context: { params: { id: string } }) {
+  return PUT(new NextRequest("http://local", { method: "PUT", body: JSON.stringify({ isHidden: true }) }), context);
 }

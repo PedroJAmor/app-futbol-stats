@@ -3,85 +3,213 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-}
-
-// ─── Usuarios (admin por ahora, preparado para roles futuros) ───────────────
-
-model User {
-  id           Int      @id @default(autoincrement())
-  username     String   @unique
-  passwordHash String
-  role         Role     @default(VIEWER)
-  createdAt    DateTime @default(now())
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
+  USER
   ADMIN
-  ANOTADOR  // futuro: crea partidos y anota jugadores
-  JUGADOR   // futuro: se anota a partidos
+  SUPERADMIN
+}
+
+enum LegacyRole {
+  ADMIN
+  ANOTADOR
+  JUGADOR
   VIEWER
 }
 
-// ─── Jugadores ───────────────────────────────────────────────────────────────
-
-model Player {
-  id        Int               @id @default(autoincrement())
-  nombre    String
-  apodo     String?
-  foto      String?           // URL de Cloudinary
-  fechaNac  DateTime?
-  activo    Boolean           @default(true)
-  createdAt DateTime          @default(now())
-  stats     MatchPlayerStat[]
-}
-
-// ─── Partidos ────────────────────────────────────────────────────────────────
-
-model Match {
-  id          Int         @id @default(autoincrement())
-  fecha       DateTime    // incluye hora
-  formato     Int         // 5, 7 u 11
-  cancha      String?
-  precio      Float?
-  clima       String?     // "Despejado", "Nublado", "Lluvioso", "Frío", etc.
-  temperatura Float?
-  notas       String?
-  mvpId       Int?        // ID del jugador MVP (sin FK para poder ser null libremente)
-  createdAt   DateTime    @default(now())
-  teams       MatchTeam[]
-}
-
-// ─── Equipos de un partido (siempre 2 por partido) ──────────────────────────
-
-model MatchTeam {
-  id        Int               @id @default(autoincrement())
-  matchId   Int
-  match     Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  color     String            // "Oscuro", "Claro", "Rojo", "Blanco", o nombre especial
-  resultado Resultado
-  players   MatchPlayerStat[]
-}
-
-enum Resultado {
+enum MatchResult {
   WIN
   LOSS
   DRAW
 }
 
-// ─── Participación de un jugador en un equipo de un partido ─────────────────
-// Una fila = un jugador en un equipo en un partido
-// Si en un F7 rotaron 8 jugadores en un equipo → 8 filas para ese MatchTeam
+enum TeamSide {
+  A
+  B
+}
 
-model MatchPlayerStat {
+enum ForumMentionTarget {
+  MATCH
+  PLAYER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  role          Role      @default(USER)
+  playerId      Int?      @unique
+  player        Player?   @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  accounts      Account[]
+  sessions      Session[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model LegacyCredentialUser {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  passwordHash String
+  role         LegacyRole @default(VIEWER)
+  createdAt    DateTime   @default(now())
+}
+
+model Player {
+  id             Int                  @id @default(autoincrement())
+  firstName      String
+  lastName       String?
+  nickname       String?
+  legacyFullName String?
+  photoUrl       String?
+  birthDate      DateTime?
+  isActive       Boolean              @default(true)
+  isHidden       Boolean              @default(false)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  participations MatchParticipation[]
+  linkedUser     User?
+  mvpMatches     Match[]              @relation("MatchMvp")
+
+  @@index([isHidden, isActive])
+  @@index([firstName, lastName])
+}
+
+model Match {
+  id             Int                  @id @default(autoincrement())
+  playedAt       DateTime
+  format         Int
+  venue          String?
+  priceCents     Int?
+  weather        String?
+  temperature    Decimal?             @db.Decimal(5, 2)
+  notes          String?
+  mvpId          Int?
+  mvp            Player?              @relation("MatchMvp", fields: [mvpId], references: [id], onDelete: SetNull)
+  isHidden       Boolean              @default(false)
+  hiddenAt       DateTime?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  teams          MatchTeam[]
+  participations MatchParticipation[]
+  mentions       ForumMention[]
+
+  @@index([isHidden, playedAt(sort: Desc)])
+  @@index([mvpId])
+}
+
+model MatchTeam {
+  id             Int                  @id @default(autoincrement())
+  matchId        Int
+  match          Match                @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  side           TeamSide
+  color          String
+  result         MatchResult
+  participations MatchParticipation[]
+
+  @@unique([matchId, side])
+  @@index([matchId])
+}
+
+model MatchParticipation {
   id       Int       @id @default(autoincrement())
+  matchId  Int
+  match    Match     @relation(fields: [matchId], references: [id], onDelete: Cascade)
   teamId   Int
   team     MatchTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
   playerId Int
   player   Player    @relation(fields: [playerId], references: [id])
-  goles    Int?      // null por ahora, se activa en una futura versión
-  golesEc  Int?      // goles en contra, null por ahora
+  goals    Int?
+  ownGoals Int?
 
-  @@unique([teamId, playerId]) // un jugador no puede estar dos veces en el mismo equipo
+  @@unique([matchId, playerId])
+  @@unique([teamId, playerId])
+  @@index([playerId, matchId])
+  @@index([teamId])
+}
+
+model ForumPost {
+  id        String         @id @default(cuid())
+  text      String
+  parentId  String?
+  parent    ForumPost?     @relation("ForumReplies", fields: [parentId], references: [id], onDelete: Restrict)
+  replies   ForumPost[]    @relation("ForumReplies")
+  isHidden  Boolean        @default(false)
+  deletedAt DateTime?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  mentions  ForumMention[]
+
+  @@index([parentId, createdAt])
+  @@index([isHidden, createdAt(sort: Desc)])
+}
+
+model ForumMention {
+  id            String             @id @default(cuid())
+  postId        String
+  post          ForumPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  targetType    ForumMentionTarget
+  matchId       Int?
+  match         Match?             @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  playerId      Int?
+  token         String             @unique
+  labelSnapshot String
+  createdAt     DateTime           @default(now())
+
+  @@index([postId])
+  @@index([matchId])
+}
+
+model AnonymousRateLimit {
+  id              String   @id @default(cuid())
+  fingerprintHash String
+  bucketStart     DateTime
+  count           Int      @default(1)
+  expiresAt       DateTime
+
+  @@unique([fingerprintHash, bucketStart])
+  @@index([expiresAt])
 }
