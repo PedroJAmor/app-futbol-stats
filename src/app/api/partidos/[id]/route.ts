@@ -4,8 +4,9 @@ import { argentinaFormToUtc } from "@/lib/dates";
 import { getCurrentUser, requireRole, authErrorStatus } from "@/features/auth/session";
 import { matchInputSchema } from "@/features/matches/schemas";
 import { validateMatchInput } from "@/features/matches/validators";
+import { resolveVenueId } from "@/features/matches/venues";
 
-const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } }, mvp: true };
+const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } }, mvp: true, venue: true };
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
   const id = Number(params.id);
@@ -25,12 +26,13 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const input = matchInputSchema.parse(await request.json());
     validateMatchInput(input);
     const match = await prisma.$transaction(async (tx) => {
+      const venueId = await resolveVenueId(tx, input);
       await tx.matchParticipation.deleteMany({ where: { matchId: id } });
       await tx.match.update({
         where: { id },
         data: {
           playedAt: argentinaFormToUtc(input.date, input.time), format: input.format,
-          venue: input.venue || null, priceCents: input.priceCents ?? null,
+          venueId, priceCents: input.priceCents ?? null,
           weather: input.weather || null, temperature: input.temperature,
           notes: input.notes || null, mvpId: input.mvpId,
         },

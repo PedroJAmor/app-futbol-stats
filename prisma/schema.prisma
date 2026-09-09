@@ -118,11 +118,23 @@ model Player {
   @@index([firstName, lastName])
 }
 
+model Venue {
+  id             Int      @id @default(autoincrement())
+  name           String
+  normalizedName String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  matches        Match[]
+
+  @@index([name])
+}
+
 model Match {
   id             Int                  @id @default(autoincrement())
   playedAt       DateTime
   format         Int
-  venue          String?
+  venueId        Int?
+  venue          Venue?               @relation(fields: [venueId], references: [id], onDelete: SetNull)
   priceCents     Int?
   weather        String?
   temperature    Decimal?             @db.Decimal(5, 2)
@@ -139,6 +151,7 @@ model Match {
 
   @@index([isHidden, playedAt(sort: Desc)])
   @@index([mvpId])
+  @@index([venueId])
 }
 
 model MatchTeam {

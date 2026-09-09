@@ -31,6 +31,7 @@ button:disabled { cursor: wait; opacity: .65; }
 .account-drawer.open { transform: translateX(0); }
 .account-drawer a { padding: 12px 0; font-weight: 600; text-decoration: none; border-bottom: 1px solid #ececef; }
 .app-main { width: min(100%, 960px); max-width: 100%; min-width: 0; margin: 0 auto; padding: 28px 16px 112px; }
+.swipe-surface { touch-action: pan-y; }
 
 .tab-bar { position: fixed; z-index: 20; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; width: 100%; max-width: none; min-height: 66px; padding: 8px 8px max(8px, env(safe-area-inset-bottom)); color: var(--ink); background: var(--lime); box-shadow: 0 -8px 30px rgba(0,0,0,.2); }
 .tab-link { display: grid; place-items: center; min-width: 0; padding: 10px 1px; border-radius: 18px; font-size: 9px; font-weight: 650; line-height: 1.1; letter-spacing: -.15px; text-align: center; text-decoration: none; }
@@ -41,6 +42,10 @@ button:disabled { cursor: wait; opacity: .65; }
 .page-intro { margin-bottom: 2px; }
 .page-intro h1 { color: var(--lime); }
 .my-player-link { display: inline-flex; margin-top: 4px; color: var(--lime); font-size: 12px; font-weight: 750; text-decoration: none; }
+.home-personal { align-self: start; }
+.home-link-account { align-content: center; align-self: start; }
+.home-link-account p { margin-bottom: 0; color: #6d6e73; font-size: 13px; line-height: 1.5; }
+.home-link-account .button { justify-self: start; }
 .eyebrow { margin-bottom: 5px; color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: 1.1px; text-transform: uppercase; }
 .card { padding: 16px; color: var(--ink); background: var(--white); border: 0; border-radius: 14px; box-shadow: var(--shadow); }
 .stack { display: grid; gap: 12px; }
@@ -193,7 +198,9 @@ tbody td:last-child { border-radius: 0 5px 5px 0; font-weight: 750; }
 .comparison-sheet .player-options { max-height: none; min-height: 0; overflow-y: auto; box-shadow: none; }
 
 .forum-composer textarea { display: block; }
-.mention-suggestions { display: grid; gap: 6px; }
+.mention-suggestions { display: grid; max-height: 260px; overflow-y: auto; gap: 6px; border-radius: 12px; padding: 8px; background: #f1f1f3; }
+.mention-suggestions .button { text-align: left; }
+.mention-suggestions .muted { margin: 4px; }
 .forum-post { color: var(--ink); }
 .forum-post p { line-height: 1.55; white-space: pre-wrap; }
 .forum-meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 10px; color: #75767b; font-size: 11px; }
@@ -220,6 +227,7 @@ h3 { margin-bottom: 6px; }
   .tab-bar { right: auto; left: 50%; width: min(680px, calc(100% - 32px)); transform: translateX(-50%); bottom: 12px; border-radius: 24px; }
   .home-page { grid-template-columns: 1fr 1fr; }
   .home-page .page-intro, .home-page .ranking-table, .home-page > section:last-child { grid-column: 1 / -1; }
+  .home-page-guest .home-latest { grid-column: 1 / -1; }
   .players-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 16px; }
   .player-hero { margin: 0; }
   .comparison-sheet-backdrop { display: none; }

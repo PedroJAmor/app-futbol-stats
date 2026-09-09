@@ -10,10 +10,18 @@ async function main() {
       (SELECT count(*)::int FROM "LegacyCredentialUser") AS legacy_users,
       (SELECT count(*)::int FROM "Player") AS players,
       (SELECT count(*)::int FROM "Match") AS matches,
+      (SELECT count(*)::int FROM "Venue") AS venues,
+      (SELECT count(*)::int FROM "Match" WHERE "venueId" IS NOT NULL) AS matches_with_venue,
       (SELECT count(*)::int FROM "MatchTeam") AS teams,
       (SELECT count(*)::int FROM "MatchParticipation") AS participations,
       (SELECT count(*)::int FROM "MatchParticipation" WHERE "matchId" IS NULL) AS missing_match_ids,
       (SELECT count(*)::int FROM "Match" WHERE "format" <= 0) AS invalid_formats,
+      (SELECT count(*)::int FROM "Venue" WHERE BTRIM("name") = '') AS blank_venue_names,
+      (SELECT count(*)::int FROM "Match" m
+        WHERE m."venueId" IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM "Venue" v WHERE v.id = m."venueId"
+        )
+      ) AS invalid_venue_ids,
       (SELECT count(*)::int FROM (
         SELECT "matchId" FROM "MatchTeam" GROUP BY "matchId" HAVING count(*) <> 2
       ) q) AS matches_without_two_teams,
@@ -23,7 +31,7 @@ async function main() {
       ) q) AS duplicate_participations
   `);
 
-  const failures = ["missing_match_ids", "invalid_formats", "matches_without_two_teams", "duplicate_participations"]
+  const failures = ["missing_match_ids", "invalid_formats", "blank_venue_names", "invalid_venue_ids", "matches_without_two_teams", "duplicate_participations"]
     .filter((key) => counts[key] > 0);
   if (failures.length) throw new Error(`Validación V2 falló: ${failures.join(", ")}`);
 

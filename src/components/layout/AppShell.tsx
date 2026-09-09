@@ -1,5 +1,6 @@
 import AccountDrawer from "./AccountDrawer";
 import MobileTabBar from "./MobileTabBar";
+import SwipeNavigation from "./SwipeNavigation";
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -8,7 +9,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <strong className="brand">Fútbol Amigos</strong>
         <AccountDrawer />
       </header>
-      <main className="app-main">{children}</main>
+      <SwipeNavigation>{children}</SwipeNavigation>
       <MobileTabBar />
     </div>
   );

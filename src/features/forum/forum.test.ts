@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractMatchMentionRefs } from "./mentions";
+import { getMatchMentionTrigger, replaceMatchMentionTrigger } from "./mention-trigger";
 import { getRateLimitBucketStart, hashAnonymousFingerprint } from "./rate-limit";
 import { forumPostSchema } from "./schemas";
 
@@ -20,5 +21,13 @@ describe("anonymous forum", () => {
       { matchId: 56, token: "tkn_abcd1234" },
       { matchId: 7, token: "tkn_xyz" },
     ]);
+  });
+  it("abre menciones desde arroba y reemplaza el texto activo", () => {
+    expect(getMatchMentionTrigger("hola @")).toMatchObject({ query: "" });
+    expect(getMatchMentionTrigger("hola @par")).toMatchObject({ query: "" });
+    expect(getMatchMentionTrigger("hola @partido56")).toMatchObject({ query: "56" });
+    expect(getMatchMentionTrigger("hola @persona")).toBeNull();
+    expect(replaceMatchMentionTrigger("hola @", "@[match:56:tkn_test]"))
+      .toBe("hola @[match:56:tkn_test]");
   });
 });

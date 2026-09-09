@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { formatArgentinaDateTime } from "@/lib/dates";
+import { getMatchMentionTrigger, replaceMatchMentionTrigger } from "@/features/forum/mention-trigger";
 
 type Mention = { token: string; labelSnapshot: string; match: { id: number; isHidden: boolean } | null };
 type Post = { id: string; text: string; createdAt: string; deletedAt: string | null; mentions: Mention[]; replies: Post[] };
@@ -23,12 +24,31 @@ function Composer({ parentId, onPublished, onCancel }: { parentId?: string; onPu
   const [text, setText] = useState("");
   const [website, setWebsite] = useState("");
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState("");
   useEffect(() => {
-    const found = text.match(/@partido(\d*)$/);
-    if (!found) return void setSuggestions([]);
-    fetch(`/api/mentions?query=${found[1]}`).then((response) => response.json()).then(setSuggestions);
+    const trigger = getMatchMentionTrigger(text);
+    if (!trigger) {
+      setSuggestions([]);
+      setLoadingSuggestions(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoadingSuggestions(true);
+    fetch(`/api/mentions?query=${encodeURIComponent(trigger.query)}`, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("No se pudieron cargar los partidos");
+        return response.json();
+      })
+      .then(setSuggestions)
+      .catch((fetchError) => {
+        if (fetchError instanceof Error && fetchError.name !== "AbortError") setSuggestions([]);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingSuggestions(false);
+      });
+    return () => controller.abort();
   }, [text]);
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -40,10 +60,10 @@ function Composer({ parentId, onPublished, onCancel }: { parentId?: string; onPu
     else { const data = await response.json(); setError(data.error ?? "No se pudo publicar."); }
   }
   function insert(suggestion: Suggestion) {
-    setText((current) => current.replace(/@partido\d*$/, suggestion.token));
+    setText((current) => replaceMatchMentionTrigger(current, suggestion.token));
     setSuggestions([]);
   }
-  return <form className="stack forum-composer" onSubmit={submit}><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={parentId ? "Escribí tu respuesta..." : "¿Qué pasó en el partido? Escribí @partido para mencionar uno."} maxLength={1200} required autoFocus={Boolean(parentId)} /><input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} style={{ display: "none" }} /><div className="mention-suggestions">{suggestions.map((suggestion) => <button className="button" type="button" key={suggestion.token} onClick={() => insert(suggestion)}>{suggestion.label}</button>)}</div>{error && <p className="error">{error}</p>}<div className="row"><button className="button primary" type="submit" disabled={publishing}>{publishing ? "Publicando..." : parentId ? "Publicar respuesta" : "Publicar"}</button>{onCancel && <button className="button ghost" type="button" onClick={onCancel}>Cancelar</button>}</div></form>;
+  return <form className="stack forum-composer" onSubmit={submit}><textarea value={text} onChange={(event) => setText(event.target.value)} placeholder={parentId ? "Escribí tu respuesta..." : "¿Qué pasó en el partido? Escribí @ para mencionar uno."} maxLength={1200} required autoFocus={Boolean(parentId)} /><input tabIndex={-1} autoComplete="off" value={website} onChange={(event) => setWebsite(event.target.value)} style={{ display: "none" }} />{(loadingSuggestions || suggestions.length > 0) && <div className="mention-suggestions" aria-live="polite">{loadingSuggestions && <p className="muted">Buscando partidos...</p>}{suggestions.map((suggestion) => <button className="button" type="button" key={suggestion.token} onClick={() => insert(suggestion)}>{suggestion.label}</button>)}</div>}{error && <p className="error">{error}</p>}<div className="row"><button className="button primary" type="submit" disabled={publishing}>{publishing ? "Publicando..." : parentId ? "Publicar respuesta" : "Publicar"}</button>{onCancel && <button className="button ghost" type="button" onClick={onCancel}>Cancelar</button>}</div></form>;
 }
 
 export default function ForumPage() {

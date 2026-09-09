@@ -14,4 +14,9 @@ describe("match validator", () => {
     expect(() => validateMatchInput(matchInputSchema.parse({ ...valid, teams: [valid.teams[0], { ...valid.teams[1], playerIds: [3, 5] }] }))).toThrow();
     expect(() => validateMatchInput(matchInputSchema.parse({ ...valid, mvpId: 99 }))).toThrow();
   });
+  it("acepta una cancha existente o nueva, pero no ambas", () => {
+    expect(matchInputSchema.parse({ ...valid, venueId: 3 }).venueId).toBe(3);
+    expect(matchInputSchema.parse({ ...valid, newVenueName: "La Avenida" }).newVenueName).toBe("La Avenida");
+    expect(() => matchInputSchema.parse({ ...valid, venueId: 3, newVenueName: "Otra" })).toThrow();
+  });
 });
