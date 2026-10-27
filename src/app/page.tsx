@@ -31,8 +31,11 @@ export default async function HomePage() {
       </section> : user ? <section className="card stack home-link-account">
         <div><h2>Vinculá tu cuenta</h2><p>Asociá tu cuenta con tu jugador para ver tus partidos y acceder rápido a tu ficha.</p></div>
         <Link className="button primary" href="/perfil">Vincular mi cuenta</Link>
-      </section> : null}
-      <section className="stack home-latest"><div className="section-heading"><h2>Últimos partidos</h2><Link href="/partidos">Ver todos</Link></div><div className="home-match-grid">{latestMatches.map((match) => <MatchCard compact key={match.id} match={{ ...match, venue: match.venue?.name ?? null }} />)}</div>{latestMatches.length === 0 && <p className="muted empty-state">Todavía no hay partidos registrados.</p>}</section>
+      </section> : <section className="card stack home-link-account home-sign-in">
+        <div><h2>Iniciá sesión</h2><p>Ingresá para acceder a tu perfil y ver tus partidos.</p></div>
+        <Link className="button primary" href="/perfil">Iniciar sesión</Link>
+      </section>}
+      <section className="stack home-latest"><div className="section-heading"><h2>Últimos partidos</h2><Link href="/partidos">Ver todos</Link></div><div className="home-match-grid">{latestMatches.map((match) => <MatchCard key={match.id} match={{ ...match, venue: match.venue?.name ?? null }} />)}</div>{latestMatches.length === 0 && <p className="muted empty-state">Todavía no hay partidos registrados.</p>}</section>
       <section className="home-ranking"><h2>Porcentaje de victorias</h2><div className="table-scroll ranking-table"><table><thead><tr><th>Pos.</th><th>Jugador</th><th>PJ</th><th>V</th><th>%V</th></tr></thead><tbody>{ranking.map((stat, index) => <PlayerTableRow key={stat.playerId} playerId={stat.playerId} name={lineupPlayerName(stat, repeatedGivenNames)} title={formatPlayerName(stat)} leading={index + 1}><td>{stat.pj}</td><td>{stat.v}</td><td>{stat.pctV}%</td></PlayerTableRow>)}</tbody></table></div>{ranking.length === 0 && <p className="muted empty-state">El ranking aparecerá cuando haya partidos registrados.</p>}</section>
     </div>
   );

@@ -47,3 +47,7 @@ Por aprobación posterior («hagamos eso»), se recuperó la altura compacta de 
 ## Validación manual del usuario — 26/10/2026
 
 El usuario confirmó creación y edición de partidos (incluidos movimientos de equipos, MVP y persistencia), actividad/inactividad de jugadores, bloqueo de borrado con historial y ocultamiento/restauración de partidos. La subida real de foto falló: el ping de solo lectura de Cloudinary devuelve HTTP 401 `disabled api_key`. No se realizaron subidas de diagnóstico ni cambios en datos. Se requiere habilitar la clave en Cloudinary o configurar credenciales activas en `.env`; la aplicación ahora distingue ese motivo de otros errores externos sin devolver claves, firmas o mensajes sin filtrar. Doce pruebas de upload aprobadas con llamadas externas simuladas. El flujo de fotos permanece pendiente de una subida real correcta.
+
+## Inicio y demo para amigos
+
+Por pedido del usuario, Inicio invita a iniciar sesión solo a visitantes sin cuenta y reutiliza las tarjetas completas de Partidos: día, fecha, hora, cancha y formato. Se conservan la bienvenida y el resumen personal de quienes ya iniciaron sesión. El usuario eligió compartir una demo con la base de pruebas, separada del lanzamiento definitivo. La ampliación del acceso de Vercel se prepara y verifica por separado; los permisos administrativos de la aplicación se conservan.
