@@ -1,10 +1,17 @@
+import { checkReadRateLimit } from "@/features/security/rate-limit";
+import { assertSameOrigin, readJsonBody } from "@/features/security/request";
+import { securityErrorResponse } from "@/features/security/errors";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, requireRole } from "@/features/auth/session";
 import { playerCreateSchema, playerBirthDate } from "@/features/players/schemas";
 import { playerError } from "@/features/players/errors";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
+  const rateFailure = await checkReadRateLimit(request);
+  if (rateFailure) return rateFailure;
   const includeHidden = request.nextUrl.searchParams.get("includeHidden") === "1";
   const activeOnly = request.nextUrl.searchParams.get("activeOnly") === "1";
   const sort = request.nextUrl.searchParams.get("sort");
@@ -26,8 +33,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    assertSameOrigin(request);
     await requireRole("ADMIN");
-    const body = playerCreateSchema.parse(await request.json());
+    const body = playerCreateSchema.parse(await readJsonBody(request));
     return NextResponse.json(await prisma.player.create({
       data: {
         firstName: body.firstName,
@@ -39,6 +47,8 @@ export async function POST(request: NextRequest) {
       },
     }), { status: 201 });
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = playerError(error, "No se pudo crear el jugador.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }

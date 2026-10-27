@@ -12,7 +12,7 @@ const photoUrl = z.string().trim().refine(value => {
   if (!value) return true;
   try { return ["http:", "https:"].includes(new URL(value).protocol); } catch { return false; }
 }, "La foto debe usar una dirección HTTP o HTTPS válida.").nullable().optional();
-const booleanState = z.boolean({ invalid_type_error: "El estado debe ser verdadero o falso." });
+const booleanState = z.boolean({ error: "El estado debe ser verdadero o falso." });
 
 const editableFields = {
   firstName: z.string().trim().min(1, "El nombre es obligatorio.").max(100, "El nombre no puede superar 100 caracteres."),

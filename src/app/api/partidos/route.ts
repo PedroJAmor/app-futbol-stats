@@ -1,3 +1,6 @@
+import { checkReadRateLimit } from "@/features/security/rate-limit";
+import { assertSameOrigin, readJsonBody } from "@/features/security/request";
+import { securityErrorResponse } from "@/features/security/errors";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { argentinaFormToUtc } from "@/lib/dates";
@@ -16,11 +19,17 @@ const matchInclude = {
   venue: true,
 };
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
+  const rateFailure = await checkReadRateLimit(request);
+  if (rateFailure) return rateFailure;
   let filters;
   try {
     filters = parseMatchFilters(request.nextUrl.searchParams);
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     return NextResponse.json({ error: error instanceof Error ? error.message : "Filtros inválidos" }, { status: 400 });
   }
   const includeHidden = request.nextUrl.searchParams.get("includeHidden") === "1";
@@ -40,8 +49,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    assertSameOrigin(request);
     await requireRole("ADMIN");
-    const input = matchInputSchema.parse(await request.json());
+    const input = matchInputSchema.parse(await readJsonBody(request));
     validateMatchInput(input);
     const match = await prisma.$transaction(async (tx) => {
       await validateParticipants(tx, input);
@@ -68,6 +78,8 @@ export async function POST(request: NextRequest) {
     }, { isolationLevel: "Serializable" });
     return NextResponse.json(match, { status: 201 });
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = matchError(error, "No se pudo crear el partido.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }

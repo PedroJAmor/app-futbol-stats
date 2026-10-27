@@ -1,8 +1,9 @@
+vi.mock("@/features/security/rate-limit", () => ({ checkReadRateLimit: vi.fn().mockResolvedValue(null), consumeUploadRateLimit: vi.fn().mockResolvedValue(undefined) }));
 import { afterEach, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 vi.mock("@/features/auth/session", () => ({ requireRole: vi.fn().mockResolvedValue({ role: "ADMIN" }), authErrorStatus: () => 500 }));
 import { POST } from "@/app/api/upload/route";
-const request = () => new NextRequest("http://localhost/api/upload", { method: "POST", body: JSON.stringify({ imagen: "data:image/png;base64,iVBORw0KGgo=" }) });
+const request = () => new NextRequest("http://localhost/api/upload", { method: "POST", body: JSON.stringify({ imagen: "data:image/png;base64,iVBORw0KGgo=" }), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
 afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 function configure(status: number, body: unknown) {
   vi.stubEnv("NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME", "test-cloud");

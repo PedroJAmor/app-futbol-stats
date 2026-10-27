@@ -51,3 +51,12 @@ El usuario confirmó creación y edición de partidos (incluidos movimientos de 
 ## Inicio y demo para amigos
 
 Por pedido del usuario, Inicio invita a iniciar sesión solo a visitantes sin cuenta y reutiliza las tarjetas completas de Partidos: día, fecha, hora, cancha y formato. Se conservan la bienvenida y el resumen personal de quienes ya iniciaron sesión. El usuario eligió compartir una demo con la base de pruebas, separada del lanzamiento definitivo. La ampliación del acceso de Vercel se prepara y verifica por separado; los permisos administrativos de la aplicación se conservan.
+
+
+## Seguridad posterior a la demo — 27/10/2026
+
+Bloque local de protección de origen/cuerpos, cuotas distribuidas en la tabla existente, límites de complejidad del foro/consultas y parches compatibles. Detalles, resultados y pendientes de actualización mayor en [security-review.md](security-review.md). 249 pruebas, TypeScript, compilación y 23 comprobaciones HTTP aprobadas sin bases reales. Esta entrega aún no se publicó en Vercel.
+
+## Actualización aprobada y prueba de permisos — 27/10/2026
+
+Next 16, React 19, Zod 4 y Vitest 5 actualizados con sus adaptaciones. 254 pruebas, TypeScript y compilación aprobados; auditoría npm sin avisos conocidos. Otras 49 comprobaciones integradas verificaron permisos reales, sesiones falsificadas, revocación inmediata de roles y concurrencia del rate limit sobre PostgreSQL de pruebas. Todos los registros de prueba se limpiaron. Sin migraciones ni acceso a producción. Publicación en Preview pendiente; detalles en [security-review.md](security-review.md).

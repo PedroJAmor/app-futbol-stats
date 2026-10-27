@@ -30,8 +30,9 @@ export const authOptions: NextAuthOptions = {
   ],
   session: { strategy: "database" },
   callbacks: {
-    async signIn({ user }) {
-      return Boolean(user.email);
+    async signIn({ user, account, profile }) {
+      return account?.provider === "google" && Boolean(user.email) &&
+        Boolean(profile && "email_verified" in profile && profile.email_verified === true);
     },
     async session({ session, user }) {
       if (session.user) {

@@ -14,3 +14,8 @@ describe("filtros de estadísticas", () => {
     expect(parseComparisonIds(new URLSearchParams({ ids: "2,1,2" }))).toEqual([2, 1]);
   });
 });
+it("acota la complejidad de las comparaciones", () => {
+  const ids = Array.from({ length: 101 }, (_, i) => i + 1).join(",");
+  expect(() => parseComparisonIds(new URLSearchParams({ ids }))).toThrow("100");
+  expect(() => parseComparisonIds(new URLSearchParams({ ids: "1".repeat(1200) }))).toThrow("100");
+});

@@ -1,3 +1,6 @@
+import { consumeUploadRateLimit } from "@/features/security/rate-limit";
+import { assertSameOrigin, readJsonBody } from "@/features/security/request";
+import { securityErrorResponse } from "@/features/security/errors";
 // src/app/api/upload/route.ts
 // POST /api/upload
 // Recibe una imagen en base64 y la sube a Cloudinary
@@ -10,9 +13,11 @@ import { ImageInputError, validateImageData } from "@/features/auth/upload-image
 
 export async function POST(req: NextRequest) {
   try {
-    await requireRole("ADMIN");
-    const input = await req.json();
-    const imagen = validateImageData(input?.imagen);
+    assertSameOrigin(req);
+    const actor = await requireRole("ADMIN");
+    const input = await readJsonBody(req, 7 * 1024 * 1024);
+    const imagen = validateImageData((input as { imagen?: unknown } | null)?.imagen);
+    await consumeUploadRateLimit(actor.id);
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -74,6 +79,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: urlOptimizada });
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     if (error instanceof ImageInputError) return NextResponse.json({ error: error.message }, { status: error.status });
     if (error instanceof SyntaxError) return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
     return NextResponse.json(

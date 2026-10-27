@@ -1,3 +1,4 @@
+vi.mock("@/features/security/rate-limit", () => ({ checkReadRateLimit: vi.fn().mockResolvedValue(null), consumeUploadRateLimit: vi.fn().mockResolvedValue(undefined) }));
 import { NextRequest } from "next/server";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -17,8 +18,8 @@ vi.mock("@/lib/prisma", () => ({ prisma: { player: mocks.player, $transaction: m
 import { POST } from "@/app/api/jugadores/route";
 import { DELETE, PUT } from "@/app/api/jugadores/[id]/route";
 
-const context = { params: { id: "7" } };
-const request = (body: unknown) => new NextRequest("http://localhost/api/jugadores/7", { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
+const context = { params: Promise.resolve({ id: "7" }) };
+const request = (body: unknown) => new NextRequest("http://localhost/api/jugadores/7", { method: "PUT", body: JSON.stringify(body), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.role.mockResolvedValue({ role: "ADMIN" });

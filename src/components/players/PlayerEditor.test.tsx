@@ -8,7 +8,7 @@ const refresh = vi.hoisted(() => vi.fn());
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 let root: Root;
 let host: HTMLDivElement;
-let close: ReturnType<typeof vi.fn>;
+let close: ReturnType<typeof vi.fn<() => void>>;
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   host = document.createElement("div"); document.body.append(host); root = createRoot(host); close = vi.fn(); refresh.mockReset();

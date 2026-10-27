@@ -13,6 +13,8 @@ export const emptyMatchFilters = (): MatchFiltersValue => ({
   dateFrom: "", dateTo: "", format: "", venueId: "", playerIds: [], sameTeam: false,
 });
 
+export const MAX_FILTER_PLAYERS = 100;
+
 const MAX_DATABASE_INT = 2_147_483_647;
 
 function positiveInteger(value: string, label: string) {
@@ -45,6 +47,9 @@ export function parseMatchFilters(params: URLSearchParams): MatchFiltersValue {
     throw new Error("La fecha desde no puede ser posterior a la fecha hasta.");
   }
   const rawPlayers = params.get("playerIds")?.trim() ?? "";
+  if (rawPlayers.length > MAX_FILTER_PLAYERS * 11 || rawPlayers.split(",").length > MAX_FILTER_PLAYERS) {
+    throw new Error(`Podés seleccionar hasta ${MAX_FILTER_PLAYERS} jugadores por búsqueda.`);
+  }
   const playerIds = rawPlayers
     ? [...new Set(rawPlayers.split(",").map(value => positiveInteger(value.trim(), "Cada jugador")))]
     : [];

@@ -85,3 +85,9 @@ describe("match filter database conditions", () => {
     expect(matching("playerIds=1,5&sameTeam=1")).toEqual([]);
   });
 });
+it("rechaza listas excesivas antes de construir condiciones SQL", () => {
+  const ids = Array.from({ length: 101 }, (_, i) => i + 1).join(",");
+  expect(() => parse(`playerIds=${ids}`)).toThrow("100");
+  expect(() => parse(`playerIds=${"1".repeat(1200)}`)).toThrow("100");
+  expect(parse(`playerIds=${ids.split(",").slice(0, 100).join(",")}`).playerIds).toHaveLength(100);
+});

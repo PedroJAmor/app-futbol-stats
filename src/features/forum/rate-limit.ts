@@ -1,36 +1,18 @@
 import { createHmac } from "node:crypto";
-import type { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-const WINDOW_MS = Number(process.env.ANONYMOUS_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
-const LIMIT = Number(process.env.ANONYMOUS_RATE_LIMIT_MAX ?? 5);
+import { clientNetwork, consumeRateLimit, positiveIntegerSetting } from "@/features/security/rate-limit";
+export { getRateLimitBucketStart } from "@/features/security/rate-limit";
 
 export function hashAnonymousFingerprint(ip: string, userAgent: string, secret: string) {
   return createHmac("sha256", secret).update(`${ip}|${userAgent}`).digest("hex");
 }
 
-export function getRateLimitBucketStart(now: number, windowMs = WINDOW_MS) {
-  return new Date(Math.floor(now / windowMs) * windowMs);
-}
-
-function fingerprint(request: NextRequest) {
-  const secret = process.env.ANONYMOUS_RATE_LIMIT_SECRET;
-  if (!secret) throw new Error("ANONYMOUS_RATE_LIMIT_SECRET no está configurado");
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  const userAgent = request.headers.get("user-agent") ?? "unknown";
-  return hashAnonymousFingerprint(forwarded, userAgent, secret);
-}
-
-export async function consumeAnonymousRateLimit(request: NextRequest) {
-  const now = Date.now();
-  const bucketStart = getRateLimitBucketStart(now);
-  const expiresAt = new Date(bucketStart.getTime() + WINDOW_MS * 2);
-  const fingerprintHash = fingerprint(request);
-
-  const bucket = await prisma.anonymousRateLimit.upsert({
-    where: { fingerprintHash_bucketStart: { fingerprintHash, bucketStart } },
-    update: { count: { increment: 1 }, expiresAt },
-    create: { fingerprintHash, bucketStart, expiresAt },
-  });
-  if (bucket.count > LIMIT) throw new Error("RATE_LIMITED");
+export async function consumeAnonymousRateLimit(request: Request) {
+  const windowMs = positiveIntegerSetting("ANONYMOUS_RATE_LIMIT_WINDOW_MS", 600_000, 86_400_000);
+  const limit = positiveIntegerSetting("ANONYMOUS_RATE_LIMIT_MAX", 5, 1000);
+  const networkLimit = positiveIntegerSetting("ANONYMOUS_RATE_LIMIT_NETWORK_MAX", 50, 10_000);
+  const network = clientNetwork(request);
+  // Shared Wi-Fi gets a larger aggregate quota. Changing User-Agent no longer
+  // bypasses that ceiling. Neither identity is attached to a forum post.
+  await consumeRateLimit("forum-network", network, networkLimit, windowMs);
+  await consumeRateLimit("forum-browser", JSON.stringify([network, request.headers.get("user-agent")?.slice(0, 512) ?? "unknown"]), limit, windowMs);
 }

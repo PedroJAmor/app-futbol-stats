@@ -1,3 +1,6 @@
+import { checkReadRateLimit } from "@/features/security/rate-limit";
+import { assertSameOrigin, readJsonBody } from "@/features/security/request";
+import { securityErrorResponse } from "@/features/security/errors";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { argentinaFormToUtc } from "@/lib/dates";
@@ -10,9 +13,13 @@ import { resolveVenueId } from "@/features/matches/venues";
 
 const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } }, mvp: true, venue: true };
 
-export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
+export const dynamic = "force-dynamic";
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const rateFailure = await checkReadRateLimit(request);
+  if (rateFailure) return rateFailure;
   try {
-    const id = parseMatchId(params.id);
+    const id = parseMatchId((await params).id);
     const match = await prisma.match.findUnique({ where: { id }, include });
     if (!match) return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
     if (match.isHidden) {
@@ -21,16 +28,19 @@ export async function GET(_: NextRequest, { params }: { params: { id: string } }
     }
     return NextResponse.json(match);
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = matchError(error, "No se pudo cargar el partido.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    assertSameOrigin(request);
     await requireRole("ADMIN");
-    const id = parseMatchId(params.id);
-    const input = matchInputSchema.parse(await request.json());
+    const id = parseMatchId((await params).id);
+    const input = matchInputSchema.parse(await readJsonBody(request));
     validateMatchInput(input);
     const match = await prisma.$transaction(async (tx) => {
       await validateParticipants(tx, input);
@@ -59,32 +69,40 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }, { isolationLevel: "Serializable" });
     return NextResponse.json(match);
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = matchError(error, "No se pudo actualizar el partido.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    assertSameOrigin(request);
     await requireRole("ADMIN");
     return NextResponse.json(await prisma.match.update({
-      where: { id: parseMatchId(params.id) },
+      where: { id: parseMatchId((await params).id) },
       data: { isHidden: true, hiddenAt: new Date() },
     }));
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = matchError(error, "No se pudo ocultar el partido.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
-export async function PATCH(_: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    assertSameOrigin(request);
     await requireRole("ADMIN");
     return NextResponse.json(await prisma.match.update({
-      where: { id: parseMatchId(params.id) },
+      where: { id: parseMatchId((await params).id) },
       data: { isHidden: false, hiddenAt: null },
     }));
   } catch (error) {
+    const securityFailure = securityErrorResponse(error);
+    if (securityFailure) return securityFailure;
     const failure = matchError(error, "No se pudo restaurar el partido.");
     return NextResponse.json({ error: failure.message }, { status: failure.status });
   }

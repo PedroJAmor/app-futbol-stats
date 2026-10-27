@@ -1,5 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
+const MAX_RENDER_DEPTH = 20;
+
 export const publicPostSelect = {
   id: true, text: true, parentId: true, createdAt: true, deletedAt: true, isHidden: true,
   mentions: { select: { token: true, labelSnapshot: true, match: { select: { id: true, isHidden: true } } } },
@@ -25,7 +27,15 @@ export function publicPostTree(posts: Post[]) {
   const roots: Node[] = [];
   for (const node of nodes.values()) {
     const parent = node.parentId ? nodes.get(node.parentId) : null;
-    if (parent) parent.replies.push(node); else roots.push(node);
+    // Bound legacy/corrupt trees too: preserve posts as roots instead of creating
+    // cycles or deeply nested JSON that can crash the API/browser serializer.
+    const visited = new Set([node.id]);
+    let ancestor = parent;
+    while (ancestor && visited.size < MAX_RENDER_DEPTH && !visited.has(ancestor.id)) {
+      visited.add(ancestor.id);
+      ancestor = ancestor.parentId ? nodes.get(ancestor.parentId) ?? null : null;
+    }
+    if (parent && !ancestor) parent.replies.push(node); else roots.push(node);
   }
   function visible(nodes: Node[]): Node[] {
     return nodes.map(node => ({ ...node, replies: visible(node.replies) })).filter(node => !node.isHidden || node.replies.length > 0);

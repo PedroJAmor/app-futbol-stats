@@ -1,3 +1,4 @@
+vi.mock("@/features/security/rate-limit", () => ({ checkReadRateLimit: vi.fn().mockResolvedValue(null), consumeUploadRateLimit: vi.fn().mockResolvedValue(undefined) }));
 import { NextRequest } from "next/server";
 import { beforeEach, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
@@ -16,7 +17,7 @@ import { POST as upload } from "@/app/api/upload/route";
 import { POST as publish, GET as posts } from "@/app/api/forum/route";
 import { GET as mentionSuggestions } from "@/app/api/mentions/route";
 const userId = "cl000000000000000000000000";
-const req = (body: unknown) => new NextRequest("http://localhost/api/test", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json" } });
+const req = (body: unknown) => new NextRequest("http://localhost/api/test", { method: "POST", body: JSON.stringify(body), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
 beforeEach(() => {
   vi.resetAllMocks(); mocks.role.mockResolvedValue({ role: "ADMIN" });
   mocks.transaction.mockImplementation(callback => callback({ user: mocks.user, player: mocks.player }));
@@ -26,13 +27,13 @@ beforeEach(() => {
 });
 it("la edición de cuentas requiere autorización antes de procesar datos", async () => {
   mocks.role.mockRejectedValue(new Error("UNAUTHORIZED"));
-  expect((await PATCH(req({ role: "SUPERADMIN" }), { params: { id: userId } })).status).toBe(401);
+  expect((await PATCH(req({ role: "SUPERADMIN" }), { params: Promise.resolve({ id: userId }) })).status).toBe(401);
   expect(mocks.transaction).not.toHaveBeenCalled();
 });
 it("roles protegidos y vinculación dentro de transacción Serializable", async () => {
-  expect((await PATCH(req({ role: "SUPERADMIN" }), { params: { id: userId } })).status).toBe(403);
+  expect((await PATCH(req({ role: "SUPERADMIN" }), { params: Promise.resolve({ id: userId }) })).status).toBe(403);
   expect(mocks.user.update).not.toHaveBeenCalled();
-  expect((await PATCH(req({ playerId: 7 }), { params: { id: userId } })).status).toBe(200);
+  expect((await PATCH(req({ playerId: 7 }), { params: Promise.resolve({ id: userId }) })).status).toBe(200);
   expect(mocks.transaction).toHaveBeenLastCalledWith(expect.any(Function), { isolationLevel: "Serializable" });
 });
 it("upload deniega invitados sin realizar llamadas externas", async () => {
@@ -54,17 +55,64 @@ it("foro rechaza respuestas a publicaciones ocultas", async () => {
   expect((await publish(req({ text: "Hola", parentId: userId }))).status).toBe(400); expect(mocks.forumPost.create).not.toHaveBeenCalled();
 });
 it("foro conserva rate limit y honeypot sin publicar", async () => {
-  mocks.rate.mockRejectedValue(new Error("RATE_LIMITED"));
+  mocks.rate.mockRejectedValue(new RequestSecurityError("Probá de nuevo en 60 segundos.", 429, 60));
   expect((await publish(req({ text: "Hola" }))).status).toBe(429);
   expect((await publish(req({ text: "Hola", website: "spam" }))).status).toBe(201);
   expect(mocks.forumPost.create).not.toHaveBeenCalled();
 });
 it("foro GET usa select acotado sin datos privados de partidos", async () => {
-  mocks.forumPost.findMany.mockResolvedValue([]); await posts();
+  mocks.forumPost.findMany.mockResolvedValue([]); await posts(new NextRequest("http://localhost/api/forum"));
   const selection = mocks.forumPost.findMany.mock.calls[0][0].select;
   expect(selection.mentions.select.match.select).toEqual({ id: true, isHidden: true });
 });
 it("sugerencias rechazan ids fuera de rango sin consultar", async () => {
   const response = await mentionSuggestions(new NextRequest("http://localhost/api/mentions?query=999999999999999999"));
   expect(response.status).toBe(400); expect(mocks.match.findMany).not.toHaveBeenCalled();
+});
+
+import { RequestSecurityError, securityErrorResponse } from "@/features/security/errors";
+import { checkReadRateLimit, consumeUploadRateLimit } from "@/features/security/rate-limit";
+import { POST as createMatch } from "@/app/api/partidos/route";
+import { PUT as editMatch, DELETE as hideMatch, PATCH as restoreMatch } from "@/app/api/partidos/[id]/route";
+import { POST as createPlayer } from "@/app/api/jugadores/route";
+import { PUT as editPlayer, DELETE as hidePlayer } from "@/app/api/jugadores/[id]/route";
+import { DELETE as moderate } from "@/app/api/forum/[id]/route";
+const numericContext = { params: Promise.resolve({ id: "1" }) };
+const textContext = { params: Promise.resolve({ id: userId }) };
+const mutations = [
+  ["crear partido", (request: NextRequest) => createMatch(request)],
+  ["editar partido", (request: NextRequest) => editMatch(request, numericContext)],
+  ["ocultar partido", (request: NextRequest) => hideMatch(request, numericContext)],
+  ["restaurar partido", (request: NextRequest) => restoreMatch(request, numericContext)],
+  ["crear jugador", (request: NextRequest) => createPlayer(request)],
+  ["editar jugador", (request: NextRequest) => editPlayer(request, numericContext)],
+  ["ocultar jugador", (request: NextRequest) => hidePlayer(request, numericContext)],
+  ["roles y vinculación", (request: NextRequest) => PATCH(request, textContext)],
+  ["moderar", (request: NextRequest) => moderate(request, textContext)],
+  ["publicar", (request: NextRequest) => publish(request)],
+  ["subir foto", (request: NextRequest) => upload(request)],
+] as const;
+it.each(mutations)("%s rechaza escrituras externas antes de autenticar/consultar", async (_, mutate) => {
+  const request = req({}); request.headers.set("origin", "https://evil.example");
+  expect((await mutate(request)).status).toBe(403);
+  expect(mocks.role).not.toHaveBeenCalled(); expect(mocks.transaction).not.toHaveBeenCalled();
+  expect(mocks.forumPost.create).not.toHaveBeenCalled();
+});
+it("los límites frenan lecturas y fotos antes de llamadas costosas", async () => {
+  vi.mocked(checkReadRateLimit).mockResolvedValue(securityErrorResponse(new RequestSecurityError("Esperá", 429, 12))!);
+  const limited = await posts(new NextRequest("http://localhost/api/forum"));
+  expect(limited.status).toBe(429); expect(limited.headers.get("Retry-After")).toBe("12");
+  expect(mocks.forumPost.findMany).not.toHaveBeenCalled();
+  vi.mocked(consumeUploadRateLimit).mockRejectedValue(new RequestSecurityError("Esperá", 429, 30));
+  const external = vi.fn(); vi.stubGlobal("fetch", external);
+  const response = await upload(req({ imagen: "data:image/png;base64,iVBORw0KGgo=" }));
+  expect(response.status).toBe(429); expect(response.headers.get("Retry-After")).toBe("30");
+  expect(external).not.toHaveBeenCalled(); vi.unstubAllGlobals();
+});
+it("un bloqueo del foro informa espera y no crea publicaciones", async () => {
+  mocks.rate.mockRejectedValue(new RequestSecurityError("Probá de nuevo en 60 segundos.", 429, 60));
+  const response = await publish(req({ text: "hola" }));
+  expect(response.headers.get("Retry-After")).toBe("60");
+  expect(await response.json()).toEqual({ error: "Probá de nuevo en 60 segundos." });
+  expect(mocks.forumPost.create).not.toHaveBeenCalled();
 });

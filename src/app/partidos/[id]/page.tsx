@@ -9,9 +9,10 @@ import PlayerLink from "@/components/players/PlayerLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function MatchPage({ params }: { params: { id: string } }) {
-  const id = Number(params.id);
-  if (!/^\d+$/.test(params.id) || !Number.isInteger(id) || id <= 0 || id > 2_147_483_647) notFound();
+export default async function MatchPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id: rawId } = await params;
+  const id = Number(rawId);
+  if (!/^\d+$/.test(rawId) || !Number.isInteger(id) || id <= 0 || id > 2_147_483_647) notFound();
   const match = await prisma.match.findFirst({ where: { id, isHidden: false }, include: { mvp: true, venue: true, teams: { orderBy: { side: "asc" }, include: { participations: { include: { player: true } } } } } });
   if (!match) notFound();
   const [previousMatch, nextMatch, allPlayers] = await Promise.all([

@@ -18,3 +18,19 @@ it("la proyección no devuelve propiedades adicionales ni datos de cuentas", () 
   const value = { ...post("a"), userId: "identity", fingerprintHash: "hash", mentions: [{ ...post("a").mentions[0], match: { id: 7, isHidden: false, notes: "private" } }] };
   const result = JSON.stringify(publicPost(value)); expect(result).not.toMatch(/identity|hash|private|notes/);
 });
+it("serializa cadenas históricas de 5000 respuestas sin perder publicaciones ni desbordar", () => {
+  const posts = Array.from({ length: 5000 }, (_, i) => post(String(i), i ? String(i - 1) : null));
+  const tree = publicPostTree(posts);
+  expect(() => JSON.stringify(tree)).not.toThrow();
+  const pending = tree.map(node => ({ node, depth: 1 })); const seen = new Set<string>();
+  while (pending.length) {
+    const { node, depth } = pending.pop()!;
+    expect(depth).toBeLessThanOrEqual(20); expect(seen.has(node.id)).toBe(false); seen.add(node.id);
+    pending.push(...node.replies.map(child => ({ node: child, depth: depth + 1 })));
+  }
+  expect(seen.size).toBe(5000);
+});
+it("recupera ciclos como publicaciones raíz sin crear JSON cíclico", () => {
+  const tree = publicPostTree([post("a", "b"), post("b", "a"), post("c", "c")]);
+  expect(() => JSON.stringify(tree)).not.toThrow(); expect(tree.map(node => node.id)).toEqual(["a", "b", "c"]);
+});

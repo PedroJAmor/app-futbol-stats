@@ -1,10 +1,15 @@
+import { checkReadRateLimit } from "@/features/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildPublicMatchWhere, calculateStats } from "@/lib/stats";
 
 import { parseStatsFilter } from "@/features/stats/filters";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
+  const rateFailure = await checkReadRateLimit(request);
+  if (rateFailure) return rateFailure;
   const params = request.nextUrl.searchParams;
   let filter;
   try { filter = parseStatsFilter(params); }

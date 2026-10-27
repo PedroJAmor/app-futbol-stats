@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { Simulate } from "react-dom/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import StatsPage from "./page";
 import { calculateGroupStats, calculateStats, type RawStat } from "@/lib/stats";
@@ -21,7 +20,11 @@ const fetchMock = vi.fn();
 const button = (text: string) => [...host.querySelectorAll("button")].find(element => element.textContent === text)!;
 const render = async () => { await act(async () => root.render(<StatsPage />)); };
 function changeFormat(value: string) {
-  act(() => Simulate.change(host.querySelector<HTMLInputElement>('input[type="number"]')!, { target: { value } } as any));
+  const input = host.querySelector<HTMLInputElement>('input[type="number"]')!;
+  act(() => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
 }
 async function selectPlayers() {
   act(() => button("⌕Buscar y agregar jugador").click());

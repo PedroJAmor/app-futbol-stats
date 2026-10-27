@@ -1,3 +1,4 @@
+vi.mock("@/features/security/rate-limit", () => ({ checkReadRateLimit: vi.fn().mockResolvedValue(null), consumeUploadRateLimit: vi.fn().mockResolvedValue(undefined) }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), getCurrentUser: vi.fn(), transaction: vi.fn(), playerCount: vi.fn(), create: vi.fn(), update: vi.fn(), findUnique: vi.fn(), findUniqueOrThrow: vi.fn(), teamCreate: vi.fn(), teamUpsert: vi.fn(), createMany: vi.fn(), deleteMany: vi.fn() }));
@@ -6,8 +7,8 @@ vi.mock("@/lib/prisma", () => ({ prisma: { $transaction: mocks.transaction, matc
 import { POST } from "@/app/api/partidos/route";
 import { PUT, DELETE, PATCH, GET } from "@/app/api/partidos/[id]/route";
 const input = { date: "2026-10-24", time: "21:00", format: 7, weather: "Despejado", mvpId: 1, teams: [{ side: "A", color: "Oscuro", result: "WIN", playerIds: [1] }, { side: "B", color: "Claro", result: "LOSS", playerIds: [2] }] };
-const request = (body: unknown, method = "POST") => new NextRequest("http://localhost/api/partidos/7", { method, body: JSON.stringify(body) });
-const params = { params: { id: "7" } };
+const request = (body: unknown, method = "POST") => new NextRequest("http://localhost/api/partidos/7", { method, body: JSON.stringify(body), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
+const params = { params: Promise.resolve({ id: "7" }) };
 beforeEach(() => {
   vi.resetAllMocks();
   mocks.requireRole.mockResolvedValue({ role: "ADMIN" });
@@ -57,7 +58,7 @@ describe("contrato de escritura de partidos", () => {
     expect(mocks.update).toHaveBeenLastCalledWith({ where: { id: 7 }, data: { isHidden: false, hiddenAt: null } });
   });
   it("devuelve 400 para IDs inválidos y 404 para registros inexistentes", async () => {
-    expect((await DELETE(request({}, "DELETE"), { params: { id: "NaN" } })).status).toBe(400);
+    expect((await DELETE(request({}, "DELETE"), { params: Promise.resolve({ id: "NaN" }) })).status).toBe(400);
     mocks.update.mockRejectedValue({ code: "P2025" });
     expect((await DELETE(request({}, "DELETE"), params)).status).toBe(404);
   });
