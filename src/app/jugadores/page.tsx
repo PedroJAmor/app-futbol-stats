@@ -15,6 +15,7 @@ export default async function PlayersPage() {
     firstName: player.firstName,
     lastName: player.lastName,
     nickname: player.nickname,
+    isActive: player.isActive,
     legacyFullName: player.legacyFullName,
     photoUrl: player.photoUrl,
     birthDate: player.birthDate?.toISOString() ?? null,

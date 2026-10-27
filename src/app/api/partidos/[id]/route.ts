@@ -1,31 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { argentinaFormToUtc } from "@/lib/dates";
-import { getCurrentUser, requireRole, authErrorStatus } from "@/features/auth/session";
+import { getCurrentUser, requireRole } from "@/features/auth/session";
 import { matchInputSchema } from "@/features/matches/schemas";
 import { validateMatchInput } from "@/features/matches/validators";
+import { matchError, parseMatchId } from "@/features/matches/errors";
+import { validateParticipants } from "@/features/matches/participants";
 import { resolveVenueId } from "@/features/matches/venues";
 
 const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } }, mvp: true, venue: true };
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
-  const match = await prisma.match.findUnique({ where: { id }, include });
-  if (!match) return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
-  if (match.isHidden) {
-    const user = await getCurrentUser();
-    if (!user || user.role === "USER") return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
+  try {
+    const id = parseMatchId(params.id);
+    const match = await prisma.match.findUnique({ where: { id }, include });
+    if (!match) return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
+    if (match.isHidden) {
+      const user = await getCurrentUser();
+      if (!user || user.role === "USER") return NextResponse.json({ error: "Partido no encontrado" }, { status: 404 });
+    }
+    return NextResponse.json(match);
+  } catch (error) {
+    const failure = matchError(error, "No se pudo cargar el partido.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
-  return NextResponse.json(match);
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requireRole("ADMIN");
-    const id = Number(params.id);
+    const id = parseMatchId(params.id);
     const input = matchInputSchema.parse(await request.json());
     validateMatchInput(input);
     const match = await prisma.$transaction(async (tx) => {
+      await validateParticipants(tx, input);
       const venueId = await resolveVenueId(tx, input);
       await tx.matchParticipation.deleteMany({ where: { matchId: id } });
       await tx.match.update({
@@ -48,10 +56,11 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         });
       }
       return tx.match.findUniqueOrThrow({ where: { id }, include });
-    });
+    }, { isolationLevel: "Serializable" });
     return NextResponse.json(match);
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo actualizar el partido" }, { status: authErrorStatus(error) || 400 });
+    const failure = matchError(error, "No se pudo actualizar el partido.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
@@ -59,11 +68,12 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   try {
     await requireRole("ADMIN");
     return NextResponse.json(await prisma.match.update({
-      where: { id: Number(params.id) },
+      where: { id: parseMatchId(params.id) },
       data: { isHidden: true, hiddenAt: new Date() },
     }));
   } catch (error) {
-    return NextResponse.json({ error: "No se pudo ocultar el partido" }, { status: authErrorStatus(error) });
+    const failure = matchError(error, "No se pudo ocultar el partido.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
@@ -71,10 +81,11 @@ export async function PATCH(_: NextRequest, { params }: { params: { id: string }
   try {
     await requireRole("ADMIN");
     return NextResponse.json(await prisma.match.update({
-      where: { id: Number(params.id) },
+      where: { id: parseMatchId(params.id) },
       data: { isHidden: false, hiddenAt: null },
     }));
   } catch (error) {
-    return NextResponse.json({ error: "No se pudo restaurar el partido" }, { status: authErrorStatus(error) });
+    const failure = matchError(error, "No se pudo restaurar el partido.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }

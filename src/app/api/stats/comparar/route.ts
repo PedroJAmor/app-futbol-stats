@@ -2,18 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildPublicMatchWhere, calculateGroupStats } from "@/lib/stats";
 
+import { parseStatsFilter, parseComparisonIds } from "@/features/stats/filters";
+
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
-  const playerIds = (params.get("ids") ?? "").split(",").map(Number).filter(Number.isInteger);
-  if (playerIds.length < 2) return NextResponse.json({ error: "Se necesitan al menos 2 jugadores" }, { status: 400 });
-  const matchWhere = buildPublicMatchWhere({
-    format: params.get("format") ? Number(params.get("format")) : undefined,
-    dateFrom: params.get("dateFrom") ?? undefined,
-    dateTo: params.get("dateTo") ?? undefined,
-  });
+  let playerIds, filter;
+  try { playerIds = parseComparisonIds(params); filter = parseStatsFilter(params); }
+  catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : "Filtros inválidos." }, { status: 400 }); }
+  const matchWhere = buildPublicMatchWhere(filter);
+  try {
   const rows = await prisma.matchParticipation.findMany({
     where: { playerId: { in: playerIds }, match: matchWhere },
     include: { player: true, team: { include: { match: true } } },
   });
   return NextResponse.json(calculateGroupStats(playerIds, rows));
+  } catch {
+    return NextResponse.json({ error: "No se pudo cargar la comparación." }, { status: 500 });
+  }
 }

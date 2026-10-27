@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, requireRole, authErrorStatus } from "@/features/auth/session";
+import { getCurrentUser, requireRole } from "@/features/auth/session";
+import { playerCreateSchema, playerBirthDate } from "@/features/players/schemas";
+import { playerError } from "@/features/players/errors";
 
 export async function GET(request: NextRequest) {
   const includeHidden = request.nextUrl.searchParams.get("includeHidden") === "1";
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
       ...(activeOnly && { isActive: true }),
     },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    include: { _count: { select: { participations: true } } },
+    include: { _count: { select: { participations: { where: { match: { isHidden: false } } } } } },
   });
   if (sort === "popular") {
     players.sort((a, b) => b._count.participations - a._count.participations || a.firstName.localeCompare(b.firstName, "es"));
@@ -25,18 +27,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await requireRole("ADMIN");
-    const body = await request.json();
-    if (!body.firstName?.trim()) return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
+    const body = playerCreateSchema.parse(await request.json());
     return NextResponse.json(await prisma.player.create({
       data: {
-        firstName: body.firstName.trim(),
-        lastName: body.lastName?.trim() || null,
-        nickname: body.nickname?.trim() || null,
+        firstName: body.firstName,
+        lastName: body.lastName || null,
+        nickname: body.nickname || null,
         photoUrl: body.photoUrl || null,
-        birthDate: body.birthDate ? new Date(`${body.birthDate}T12:00:00Z`) : null,
+        birthDate: playerBirthDate(body.birthDate),
+        isActive: body.isActive,
       },
     }), { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: "No se pudo crear el jugador" }, { status: authErrorStatus(error) });
+    const failure = playerError(error, "No se pudo crear el jugador.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }

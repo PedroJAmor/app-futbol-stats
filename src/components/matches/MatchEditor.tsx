@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { lineupPlayerName, playerGivenNameKey } from "@/lib/displayName";
 
+import { matchInputSchema } from "@/features/matches/schemas";
+import { validateMatchInput } from "@/features/matches/validators";
+import { matchesPlayerSearch, updateTeamSelection, type TeamField } from "@/features/matches/editor";
+import { ZodError } from "zod";
+
 type PlayerOption = {
+  isActive: boolean;
   id: number;
   firstName: string;
   lastName: string | null;
@@ -35,10 +41,6 @@ export type EditableMatch = {
 
 const emptyMatch = (): Omit<EditableMatch, "id"> => ({ date: "", time: "21:00", format: 7, venueId: "", price: "", weather: "", temperature: "", notes: "", mvpId: "", aColor: "Oscuro", bColor: "Claro", result: "A", aPlayers: [], bPlayers: [] });
 
-function normalize(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
-}
-
 export default function MatchEditor({ match, onClose }: { match?: EditableMatch; onClose: () => void }) {
   const router = useRouter();
   const [players, setPlayers] = useState<PlayerOption[]>([]);
@@ -48,30 +50,81 @@ export default function MatchEditor({ match, onClose }: { match?: EditableMatch;
   const [newVenueName, setNewVenueName] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const element = dialogRef.current!;
+    const focusable = () => Array.from(element.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]'));
+    (focusable()[0] ?? element).focus();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!savingRef.current) closeRef.current();
+      }
+      if (event.key === "Tab") {
+        const controls = focusable();
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (!first) { event.preventDefault(); element.focus(); }
+        else if (event.shiftKey && (document.activeElement === first || document.activeElement === element)) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && (document.activeElement === last || document.activeElement === element)) { event.preventDefault(); first.focus(); }
+      }
+    };
+    element.addEventListener("keydown", keydown);
+    return () => {
+      element.removeEventListener("keydown", keydown);
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus instanceof HTMLElement && previousFocus.isConnected) previousFocus.focus();
+    };
+  }, []);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const repeatedGivenNames = useMemo(() => {
     const counts = players.reduce((result, player) => result.set(playerGivenNameKey(player), (result.get(playerGivenNameKey(player)) ?? 0) + 1), new Map<string, number>());
     return new Set([...counts].filter(([, count]) => count > 1).map(([name]) => name));
   }, [players]);
   useEffect(() => {
-    Promise.all([
-      fetch("/api/jugadores?sort=popular&activeOnly=1").then((response) => response.json()),
-      fetch("/api/canchas").then((response) => response.json()),
-    ]).then(([playerOptions, venueOptions]) => {
-      setPlayers(playerOptions);
-      setVenues(venueOptions);
-    }).catch(() => setError("No se pudieron cargar jugadores y canchas"));
-  }, []);
+    const controller = new AbortController();
+    setLoading(true);
+    setLoadError("");
+    async function loadOptions(url: string) {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error("No se pudieron cargar jugadores y canchas.");
+      const data = await response.json();
+      if (!Array.isArray(data)) throw new Error("No se pudieron cargar jugadores y canchas.");
+      return data;
+    }
+    Promise.all([loadOptions("/api/jugadores?sort=popular"), loadOptions("/api/canchas")])
+      .then(([playerOptions, venueOptions]) => {
+        if (controller.signal.aborted) return;
+        setPlayers(playerOptions);
+        setVenues(venueOptions);
+      }).catch(() => {
+        if (!controller.signal.aborted) setLoadError("No se pudieron cargar jugadores y canchas.");
+      }).finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [loadAttempt]);
 
-  function toggle(side: "aPlayers" | "bPlayers", playerId: number) {
-    const other = side === "aPlayers" ? "bPlayers" : "aPlayers";
-    if (form[other].includes(playerId)) return;
-    setForm({ ...form, [side]: form[side].includes(playerId) ? form[side].filter((id) => id !== playerId) : [...form[side], playerId] });
+  function toggle(side: TeamField, playerId: number, move = false) {
+    setForm(current => updateTeamSelection(current, side, playerId, move));
   }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (savingRef.current || loading || loadError) return;
+    savingRef.current = true;
     setSaving(true);
     setError("");
+    try {
     const payload = {
       date: form.date, time: form.time, format: Number(form.format),
       venueId: !addingVenue && form.venueId ? Number(form.venueId) : null,
@@ -84,23 +137,36 @@ export default function MatchEditor({ match, onClose }: { match?: EditableMatch;
         { side: "B", color: form.bColor, result: form.result === "DRAW" ? "DRAW" : form.result === "B" ? "WIN" : "LOSS", playerIds: form.bPlayers },
       ],
     };
-    const response = await fetch(match ? `/api/partidos/${match.id}` : "/api/partidos", { method: match ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const data = await response.json();
-    setSaving(false);
-    if (!response.ok) return setError(data.error ?? "No se pudo guardar el partido");
+    const validated = matchInputSchema.parse(payload);
+    validateMatchInput(validated);
+    const response = await fetch(match ? `/api/partidos/${match.id}` : "/api/partidos", { method: match ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(validated) });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.error ?? "No se pudo guardar el partido.");
     onClose();
     router.refresh();
+    } catch (failure) {
+      setError(failure instanceof TypeError ? "No se pudo conectar. Revisá tu conexión y volvé a guardar." : failure instanceof ZodError ? failure.issues[0]?.message ?? "Revisá los datos del partido." : failure instanceof Error ? failure.message : "No se pudo guardar el partido. Intentá nuevamente.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
-  return <div className="modal-backdrop"><section className="modal modal-wide card" role="dialog" aria-modal="true" aria-label={match ? "Modificar partido" : "Crear partido"}><div className="row spread"><h2>{match ? `Modificar partido #${match.id}` : "Crear partido"}</h2><button type="button" className="button" onClick={onClose}>Cerrar</button></div><form className="stack" onSubmit={submit}><div className="form-grid"><label className="field">Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></label><label className="field">Hora<input type="time" value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} required /></label><label className="field">Formato<input type="number" min="1" value={form.format} onChange={(event) => setForm({ ...form, format: Number(event.target.value) })} required /></label><label className="field">Cancha<select value={addingVenue ? "new" : form.venueId} onChange={(event) => { const value = event.target.value; setAddingVenue(value === "new"); setForm({ ...form, venueId: value === "new" ? "" : value }); if (value !== "new") setNewVenueName(""); }}><option value="">Sin cancha</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name}</option>)}<option value="new">+ Agregar nueva cancha...</option></select>{addingVenue && <input value={newVenueName} onChange={(event) => setNewVenueName(event.target.value)} placeholder="Nombre de la nueva cancha" maxLength={100} required autoFocus />}</label><label className="field">Precio en pesos<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label className="field">Temperatura<input type="number" value={form.temperature} onChange={(event) => setForm({ ...form, temperature: event.target.value })} /></label></div><label className="field">Resultado<select value={form.result} onChange={(event) => setForm({ ...form, result: event.target.value as "A" | "B" | "DRAW" })}><option value="A">Gana equipo A</option><option value="B">Gana equipo B</option><option value="DRAW">Empate</option></select></label><TeamSelector label="Equipo A" color={form.aColor} setColor={(aColor) => setForm({ ...form, aColor })} selected={form.aPlayers} blocked={form.bPlayers} players={players} repeatedGivenNames={repeatedGivenNames} toggle={(id) => toggle("aPlayers", id)} /><TeamSelector label="Equipo B" color={form.bColor} setColor={(bColor) => setForm({ ...form, bColor })} selected={form.bPlayers} blocked={form.aPlayers} players={players} repeatedGivenNames={repeatedGivenNames} toggle={(id) => toggle("bPlayers", id)} /><label className="field">MVP<select value={form.mvpId} onChange={(event) => setForm({ ...form, mvpId: event.target.value })}><option value="">Sin MVP</option>{players.filter((player) => [...form.aPlayers, ...form.bPlayers].includes(player.id)).map((player) => <option value={player.id} key={player.id}>{lineupPlayerName(player, repeatedGivenNames)}</option>)}</select></label><label className="field">Notas<textarea rows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label>{error && <p className="error">{error}</p>}<button className="button primary" disabled={saving}>{saving ? "Guardando..." : "Guardar partido"}</button></form></section></div>;
+  return <div className="modal-backdrop" onClick={event => { if (event.target === event.currentTarget && !savingRef.current) onClose(); }}><section ref={dialogRef} tabIndex={-1} className="modal modal-wide card" role="dialog" aria-modal="true" aria-busy={saving} aria-label={match ? "Modificar partido" : "Crear partido"}><div className="row spread"><h2>{match ? `Modificar partido #${match.id}` : "Crear partido"}</h2><button type="button" className="button" disabled={saving} onClick={() => { if (!savingRef.current) onClose(); }}>Cerrar</button></div>{loading && <p role="status">Cargando jugadores y canchas...</p>}{loadError && <div role="alert"><p className="error">{loadError}</p><button type="button" className="button" onClick={() => setLoadAttempt(value => value + 1)}>Reintentar</button></div>}<form className="stack" onSubmit={submit}><fieldset disabled={saving || loading || Boolean(loadError)} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }} className="stack"><div className="form-grid"><label className="field">Fecha<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} required /></label><label className="field">Hora<input type="time" value={form.time} onChange={(event) => setForm({ ...form, time: event.target.value })} required /></label><label className="field">Formato<input type="number" min="1" value={form.format} onChange={(event) => setForm({ ...form, format: Number(event.target.value) })} required /></label><label className="field">Cancha<select value={addingVenue ? "new" : form.venueId} onChange={(event) => { const value = event.target.value; setAddingVenue(value === "new"); setForm({ ...form, venueId: value === "new" ? "" : value }); if (value !== "new") setNewVenueName(""); }}><option value="">Sin cancha</option>{venues.map((venue) => <option value={venue.id} key={venue.id}>{venue.name}</option>)}<option value="new">+ Agregar nueva cancha...</option></select>{addingVenue && <input value={newVenueName} onChange={(event) => setNewVenueName(event.target.value)} placeholder="Nombre de la nueva cancha" maxLength={100} required autoFocus />}</label><label className="field">Precio en pesos<input type="number" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} /></label><label className="field">Clima<input value={form.weather} onChange={(event) => setForm({ ...form, weather: event.target.value })} /></label><label className="field">Temperatura<input type="number" value={form.temperature} onChange={(event) => setForm({ ...form, temperature: event.target.value })} /></label></div><label className="field">Resultado<select value={form.result} onChange={(event) => setForm({ ...form, result: event.target.value as "A" | "B" | "DRAW" })}><option value="A">Gana equipo A</option><option value="B">Gana equipo B</option><option value="DRAW">Empate</option></select></label><TeamSelector label="Equipo A" color={form.aColor} setColor={(aColor) => setForm({ ...form, aColor })} selected={form.aPlayers} blocked={form.bPlayers} players={players} repeatedGivenNames={repeatedGivenNames} toggle={(id) => toggle("aPlayers", id)} move={(id) => toggle("bPlayers", id, true)} otherLabel="Equipo B" /><TeamSelector label="Equipo B" color={form.bColor} setColor={(bColor) => setForm({ ...form, bColor })} selected={form.bPlayers} blocked={form.aPlayers} players={players} repeatedGivenNames={repeatedGivenNames} toggle={(id) => toggle("bPlayers", id)} move={(id) => toggle("aPlayers", id, true)} otherLabel="Equipo A" /><label className="field">MVP<select value={form.mvpId} onChange={(event) => setForm({ ...form, mvpId: event.target.value })}><option value="">Sin MVP</option>{players.filter((player) => [...form.aPlayers, ...form.bPlayers].includes(player.id)).map((player) => <option value={player.id} key={player.id}>{lineupPlayerName(player, repeatedGivenNames)}</option>)}</select></label><label className="field">Notas<textarea rows={3} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} /></label>{error && <p className="error" role="alert">{error}</p>}<button className="button primary" disabled={saving || loading || Boolean(loadError)}>{saving ? "Guardando..." : "Guardar partido"}</button></fieldset></form></section></div>;
 }
 
-function TeamSelector({ label, color, setColor, selected, blocked, players, repeatedGivenNames, toggle }: { label: string; color: string; setColor: (value: string) => void; selected: number[]; blocked: number[]; players: PlayerOption[]; repeatedGivenNames: Set<string>; toggle: (id: number) => void }) {
+function TeamSelector({ label, color, setColor, selected, blocked, players, repeatedGivenNames, toggle, move, otherLabel }: { label: string; color: string; setColor: (value: string) => void; selected: number[]; blocked: number[]; players: PlayerOption[]; repeatedGivenNames: Set<string>; toggle: (id: number) => void; move: (id: number) => void; otherLabel: string }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
-  const filtered = useMemo(() => {
-    const search = normalize(query);
-    return players.filter((player) => !blocked.includes(player.id) && (!search || normalize([player.firstName, player.lastName, player.nickname, player.legacyFullName].filter(Boolean).join(" ")).includes(search)));
-  }, [blocked, players, query]);
-  return <section className="card stack"><div className="row spread"><strong>{label} ({selected.length})</strong><input value={color} onChange={(event) => setColor(event.target.value)} aria-label={`Nombre ${label}`} /></div><div className="selected-list">{selected.map((id) => { const player = players.find((item) => item.id === id); return player ? <button type="button" className="pill selected-player" key={id} onClick={() => toggle(id)}>{lineupPlayerName(player, repeatedGivenNames)} ×</button> : null; })}</div><label className="search-field">🔍<input value={query} onFocus={() => setOpen(true)} onChange={(event) => { setQuery(event.target.value); setOpen(true); }} placeholder={`Buscar y agregar a ${label}`} aria-label={`Buscar jugadores para ${label}`} /></label>{open && <div className="player-options">{filtered.map((player) => <button type="button" key={player.id} className={`player-option ${selected.includes(player.id) ? "selected-option" : ""}`} onClick={() => toggle(player.id)}><span>{lineupPlayerName(player, repeatedGivenNames)}</span><small>{player._count.participations} PJ</small></button>)}</div>}</section>;
+  const filtered = useMemo(() => players.filter(player => !blocked.includes(player.id) && matchesPlayerSearch(player, query)), [blocked, players, query]);
+  return <section className="card stack">
+    <div className="row spread"><strong>{label} ({selected.length})</strong><input value={color} onChange={event => setColor(event.target.value)} aria-label={`Nombre ${label}`} /></div>
+    <div className="selected-list">{selected.map(id => {
+      const player = players.find(item => item.id === id);
+      const name = player ? lineupPlayerName(player, repeatedGivenNames) : `Jugador #${id}`;
+      return <div key={id} className="stack" style={{ gap: 4 }}><button type="button" className="pill selected-player" onClick={() => toggle(id)} aria-label={`Quitar a ${name} de ${label}`}>{name}{player && !player.isActive ? " (inactivo)" : ""} ×</button><button type="button" className="button" onClick={() => move(id)} aria-label={`Mover a ${name} a ${otherLabel}`}>Mover a {otherLabel}</button></div>;
+    })}</div>
+    <label className="search-field">🔍<input value={query} onFocus={() => setOpen(true)} onChange={event => { setQuery(event.target.value); setOpen(true); }} placeholder={`Buscar y agregar a ${label}`} aria-label={`Buscar jugadores para ${label}`} /></label>
+    {open && <div className="player-options">{!filtered.length && <p>No hay jugadores para esta búsqueda.</p>}{filtered.map(player => <button type="button" key={player.id} className={`player-option ${selected.includes(player.id) ? "selected-option" : ""}`} onClick={() => toggle(player.id)}><span>{lineupPlayerName(player, repeatedGivenNames)}{!player.isActive && <small> · Inactivo</small>}</span><small>{player._count.participations} PJ</small></button>)}</div>}
+  </section>;
 }

@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { formatArgentinaDateTime } from "@/lib/dates";
+import { formatArgentinaDate, formatArgentinaMatchDate } from "@/lib/dates";
 
 type MatchCardProps = {
+  compact?: boolean;
   match: {
     id: number; playedAt: Date | string; format: number; venue: string | null; isHidden?: boolean;
     teams: { color: string; result: string }[];
@@ -9,13 +10,24 @@ type MatchCardProps = {
   };
 };
 
-export default function MatchCard({ match }: MatchCardProps) {
+export default function MatchCard({ match, compact = false }: MatchCardProps) {
   const winner = match.teams.find((team) => team.result === "WIN");
+  const result = winner ? `Ganó ${winner.color}` : "Empate";
+  const dateTime = formatArgentinaMatchDate(match.playedAt);
+  const content = <>
+    <div className="match-card-top">
+      {compact ? <strong className="match-result">{result}</strong> : <time className="match-date-title" dateTime={new Date(match.playedAt).toISOString()}>{dateTime}</time>}
+      {match.isHidden && <span className="pill">Oculto</span>}
+    </div>
+    <div className="match-card-footer">
+      {compact ? <time dateTime={new Date(match.playedAt).toISOString()} title={dateTime}>{formatArgentinaDate(match.playedAt).slice(0, 5)}</time> :
+        <span className="match-location">{match.venue ?? "Sin cancha"} · F{match.format}</span>
+      }
+    </div>
+  </>;
+  const className = `card match-card${compact ? " match-card-compact" : " match-card-dated"}`;
+  if (match.isHidden) return <article className={className} aria-label={`Partido oculto. ${dateTime}`}>{content}</article>;
   return (
-    <Link href={`/partidos/${match.id}`} className="card match-card">
-      <div className="match-card-top"><span className="match-result">{winner ? `Ganó ${winner.color}` : "Empate"}</span><span className="pill">F{match.format}</span>{match.isHidden && <span className="pill">Oculto</span>}</div>
-      <strong className="match-teams">{match.teams[0]?.color ?? "A"} <span>vs</span> {match.teams[1]?.color ?? "B"}</strong>
-      <div className="muted">{formatArgentinaDateTime(match.playedAt)}{match.venue ? ` · ${match.venue}` : ""}</div>
-    </Link>
+    <Link href={`/partidos/${match.id}`} className={className} aria-label={`${dateTime}. ${match.venue ?? "Sin cancha"}. F${match.format}.${compact ? ` ${result}.` : ""}`}>{content}</Link>
   );
 }

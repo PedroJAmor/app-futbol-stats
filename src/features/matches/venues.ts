@@ -1,4 +1,5 @@
 import type { Prisma } from "@prisma/client";
+import { MatchRequestError } from "./request-error";
 import type { MatchInput } from "./schemas";
 
 export function cleanVenueName(value: string) {
@@ -22,6 +23,6 @@ export async function resolveVenueId(tx: Prisma.TransactionClient, input: MatchI
 
   if (!input.venueId) return null;
   const venue = await tx.venue.findUnique({ where: { id: input.venueId }, select: { id: true } });
-  if (!venue) throw new Error("La cancha seleccionada no existe");
+  if (!venue) throw new MatchRequestError("La cancha seleccionada no existe");
   return venue.id;
 }

@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { argentinaFormToUtc } from "@/lib/dates";
-import { getCurrentUser, requireRole, authErrorStatus } from "@/features/auth/session";
+import { getCurrentUser, requireRole } from "@/features/auth/session";
 import { matchInputSchema } from "@/features/matches/schemas";
 import { validateMatchInput } from "@/features/matches/validators";
+import { matchError } from "@/features/matches/errors";
+import { validateParticipants } from "@/features/matches/participants";
 import { resolveVenueId } from "@/features/matches/venues";
+import { buildMatchFilterWhere, parseMatchFilters } from "@/features/matches/filters";
+import { matchCardSelect, toMatchCard } from "@/features/matches/cards";
 
 const matchInclude = {
   teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } },
@@ -13,11 +17,22 @@ const matchInclude = {
 };
 
 export async function GET(request: NextRequest) {
+  let filters;
+  try {
+    filters = parseMatchFilters(request.nextUrl.searchParams);
+  } catch (error) {
+    return NextResponse.json({ error: error instanceof Error ? error.message : "Filtros inválidos" }, { status: 400 });
+  }
   const includeHidden = request.nextUrl.searchParams.get("includeHidden") === "1";
   const currentUser = includeHidden ? await getCurrentUser() : null;
   const maySeeHidden = includeHidden && currentUser && ["ADMIN", "SUPERADMIN"].includes(currentUser.role);
+  const where = buildMatchFilterWhere(filters, Boolean(maySeeHidden));
+  if (request.nextUrl.searchParams.get("view") === "cards") {
+    const matches = await prisma.match.findMany({ where, orderBy: { playedAt: "desc" }, select: matchCardSelect });
+    return NextResponse.json(matches.map(toMatchCard));
+  }
   return NextResponse.json(await prisma.match.findMany({
-    where: maySeeHidden ? {} : { isHidden: false },
+    where,
     orderBy: { playedAt: "desc" },
     include: matchInclude,
   }));
@@ -29,6 +44,7 @@ export async function POST(request: NextRequest) {
     const input = matchInputSchema.parse(await request.json());
     validateMatchInput(input);
     const match = await prisma.$transaction(async (tx) => {
+      await validateParticipants(tx, input);
       const venueId = await resolveVenueId(tx, input);
       const created = await tx.match.create({ data: {
         playedAt: argentinaFormToUtc(input.date, input.time),
@@ -49,9 +65,10 @@ export async function POST(request: NextRequest) {
         });
       }
       return tx.match.findUniqueOrThrow({ where: { id: created.id }, include: matchInclude });
-    });
+    }, { isolationLevel: "Serializable" });
     return NextResponse.json(match, { status: 201 });
   } catch (error) {
-    return NextResponse.json({ error: error instanceof Error ? error.message : "No se pudo crear el partido" }, { status: authErrorStatus(error) || 400 });
+    const failure = matchError(error, "No se pudo crear el partido.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }

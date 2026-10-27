@@ -5,6 +5,7 @@ import { formatArgentinaDate } from "@/lib/dates";
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("query")?.trim() ?? "";
+  if (query && (!/^\d{1,10}$/.test(query) || Number(query) <= 0 || Number(query) > 2_147_483_647)) return NextResponse.json({ error: "Número de partido inválido." }, { status: 400 });
   const matches = await prisma.match.findMany({
     where: {
       isHidden: false,
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     },
     take: 8,
     orderBy: { playedAt: "desc" },
-    include: { teams: { orderBy: { side: "asc" } } },
+    select: { id: true, format: true, playedAt: true, teams: { orderBy: { side: "asc" }, select: { color: true } } },
   });
   return NextResponse.json(matches.map((match) => ({
     id: match.id,

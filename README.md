@@ -13,6 +13,20 @@ npm run dev
 
 Google OAuth puede quedar sin credenciales durante el desarrollo: la app compila y Perfil informa que falta configuración.
 
+## Revisión visual local
+
+```bash
+npm run dev:visual
+```
+
+Este comando valida la rama, el host y la etiqueta de staging antes de iniciar Next.js, y transmite al servidor el mismo entorno validado. Escucha en el puerto 3000 para revisar desde `localhost` y desde un celular en la misma Wi-Fi. No ejecuta migraciones ni carga datos de prueba.
+
+Para revisar la versión optimizada sin compilación de pantallas al navegar, ejecutar `npm run build` con el entorno de pruebas validado y luego `npm run preview:visual`. La precarga de secciones de Next.js se habilita en este modo; sigue siendo una vista local, sin despliegue y conectada exclusivamente a pruebas.
+
+Google OAuth usa `NEXTAUTH_URL`. La dirección LAN sirve para revisar la app, pero Google no admite callbacks HTTP con IP privada; para probar login desde el celular se necesita un dominio HTTPS de pruebas y autorizar su ruta `/api/auth/callback/google` en Google. No cambiar las credenciales o bases de producción para hacerlo.
+
+El alcance y las aprobaciones pendientes están en [docs/development-plan.md](docs/development-plan.md). La entrega del primer bloque está documentada en [docs/visual-block-1.md](docs/visual-block-1.md).
+
 ## Migraciones seguras
 
 La base V1 fue creada históricamente con `prisma db push`. V2 usa migraciones reales y bloquea escrituras accidentales mediante branch Git, host esperado y etiqueta de staging.

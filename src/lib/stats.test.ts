@@ -8,6 +8,19 @@ const row = (playerId: number, matchId: number, teamId: number, result: "WIN" | 
 });
 
 describe("stats V2", () => {
+  it("redondea hacia arriba el umbral proporcional al superar un múltiplo de cinco", () => {
+    const rows = [...Array.from({ length: 51 }, (_, i) => row(1, i + 1, i + 1, "LOSS")), ...Array.from({ length: 10 }, (_, i) => row(2, i + 100, i + 100, "WIN")), ...Array.from({ length: 11 }, (_, i) => row(3, i + 200, i + 200, "WIN"))];
+    expect(statsForHome(calculateStats(rows)).map(stat => stat.playerId)).toEqual([3, 1]);
+  });
+  it("compara grupos de tres, exige equipo compartido y excluye ocultos de todas las métricas", () => {
+    const rows = [row(1, 1, 1, "LOSS"), row(2, 1, 1, "LOSS"), row(3, 1, 1, "LOSS"), row(1, 2, 2, "WIN"), row(2, 2, 2, "WIN"), row(3, 2, 3, "LOSS"), row(1, 3, 4, "WIN", true), row(2, 3, 4, "WIN", true), row(3, 3, 4, "WIN", true)];
+    const group = calculateGroupStats([1, 2, 3], rows);
+    expect(group.together).toEqual({ pj: 1, v: 0, e: 0, d: 1, pctV: 0, pctD: 100 });
+    expect(group.headToHead).toBeNull();
+    expect(group.participation[1]).toMatchObject({ matchesWithGroup: 1, totalMatches: 2, percentage: 50 });
+    expect(group.individual.find(stat => stat.playerId === 1)).toMatchObject({ pj: 2, pts: 5, pctD: 50 });
+    expect(group.individual.find(stat => stat.playerId === 3)).toMatchObject({ pj: 2, pts: 2, pctD: 100 });
+  });
   it("clasifica la forma clásica de PES usando los últimos cinco resultados", () => {
     expect(calculateClassicForm(["WIN", "WIN", "WIN", "WIN", "LOSS"])).toMatchObject({ score: 3, direction: "up-right" });
     expect(calculateClassicForm(["WIN", "LOSS", "DRAW", "WIN", "LOSS"])).toMatchObject({ score: 0, direction: "neutral" });

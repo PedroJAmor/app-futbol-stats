@@ -22,6 +22,7 @@ export async function buildMentionCreates(text: string): Promise<Prisma.ForumMen
   const creates: Prisma.ForumMentionCreateWithoutPostInput[] = [];
 
   for (const { matchId, token } of matches) {
+    if (!Number.isInteger(matchId) || matchId <= 0 || matchId > 2_147_483_647) throw new Error("Partido de mención inválido");
     if (tokens.has(token)) throw new Error("Una mención no puede repetirse en el mismo texto");
     tokens.add(token);
 

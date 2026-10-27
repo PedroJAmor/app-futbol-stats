@@ -19,3 +19,7 @@ next-env.d.ts
 
 # misc
 .DS_Store
+
+# Local recovery copies and visual review evidence
+.local-backups/
+.local-artifacts/

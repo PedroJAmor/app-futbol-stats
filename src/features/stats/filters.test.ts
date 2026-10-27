@@ -1,0 +1,16 @@
+import { describe, expect, it } from "vitest";
+import { parseComparisonIds, parseStatsFilter } from "./filters";
+
+describe("filtros de estadísticas", () => {
+  it.each(["dateFrom=2026-02-30", "dateFrom=2026-10-25&dateTo=2026-10-24", "format=NaN", "format=-1", "minimumMatches=-1", "minimumMatches=2.5", "minimumMatches=Infinity"])("rechaza %s", query => {
+    expect(() => parseStatsFilter(new URLSearchParams(query))).toThrow();
+  });
+  it("conserva filtros de Argentina y mínimo sin requerir valores", () => {
+    expect(parseStatsFilter(new URLSearchParams("format=7&dateFrom=2026-10-24&minimumMatches=3"))).toMatchObject({ format: 7, dateFrom: "2026-10-24", minimumMatches: 3 });
+    expect(parseStatsFilter(new URLSearchParams())).toMatchObject({ minimumMatches: 0 });
+  });
+  it("requiere dos jugadores distintos y rechaza IDs inválidos", () => {
+    for (const ids of ["1,1", "1,", "0,1", "-1,2", "abc,2", "2147483648,2"]) expect(() => parseComparisonIds(new URLSearchParams({ ids }))).toThrow();
+    expect(parseComparisonIds(new URLSearchParams({ ids: "2,1,2" }))).toEqual([2, 1]);
+  });
+});

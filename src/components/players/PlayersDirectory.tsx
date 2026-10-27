@@ -35,14 +35,14 @@ export default function PlayersDirectory({ players }: { players: PlayerItem[] })
 
   return <>
     <section className="directory-heading">
-      <div><h1>Jugadores</h1><p className="muted">{filtered.length} de {players.length} jugadores</p></div>
+      <p className="directory-count" role="status">{query ? `${filtered.length} de ${players.length} jugadores` : `${players.length} jugadores`}</p>
       {isAdmin && <button className="button primary" onClick={() => setEditor("new")}>+ Crear jugador</button>}
     </section>
     <label className="search-field player-search"><span aria-hidden="true">⌕</span><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, apellido o apodo" aria-label="Buscar jugador" /></label>
     <div className="players-grid">
       {filtered.map((player) => <Link className={`player-tile${player.photoUrl ? " has-photo" : ""}`} href={`/jugadores/${player.id}`} key={player.id} style={player.photoUrl ? { backgroundImage: `linear-gradient(180deg, transparent 35%, rgba(0,0,0,.82)), url(${player.photoUrl})` } : undefined}>
         <span className="player-initial" aria-hidden="true">{player.firstName.slice(0, 1)}</span>
-        <span className="player-tile-copy"><strong>{lineupPlayerName(player, repeatedGivenNames)}</strong>{player.pj > 0 && <small>{player.pj} PJ · {player.pctV}% V</small>}</span>
+        <span className="player-tile-copy"><strong>{lineupPlayerName(player, repeatedGivenNames)}</strong>{!player.isActive && <small>Inactivo</small>}{player.pj > 0 && <small>{player.pj} PJ · {player.pctV}% V</small>}</span>
       </Link>)}
     </div>
     {filtered.length === 0 && <p className="muted empty-state">No encontramos jugadores con esa búsqueda.</p>}

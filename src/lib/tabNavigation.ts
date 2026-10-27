@@ -1,9 +1,9 @@
 export const primaryTabs = [
-  { href: "/", label: "Home" },
-  { href: "/jugadores", label: "Jugadores" },
+  { href: "/", label: "Inicio" },
   { href: "/partidos", label: "Partidos" },
-  { href: "/foro", label: "Foros" },
+  { href: "/jugadores", label: "Jugadores" },
   { href: "/estadisticas", label: "Estadísticas" },
+  { href: "/foro", label: "Foro" },
 ] as const;
 
 export function getPrimaryTabIndex(pathname: string) {

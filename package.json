@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3000",
+    "dev:visual": "node --env-file=.env --import tsx scripts/visual-dev.ts",
+    "preview:visual": "node --env-file=.env --import tsx scripts/visual-dev.ts --production",
     "build": "prisma generate && next build",
     "start": "next start -p 3000",
     "db:studio": "prisma studio",
@@ -33,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "jsdom": "^26.1.0",
     "prisma": "^5.10.0",
     "tsx": "^4.7.0",
     "typescript": "^5",

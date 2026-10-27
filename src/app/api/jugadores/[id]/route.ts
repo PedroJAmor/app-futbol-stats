@@ -1,49 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireRole, authErrorStatus } from "@/features/auth/session";
+import { requireRole } from "@/features/auth/session";
+import { parsePlayerId, playerUpdateSchema } from "@/features/players/schemas";
+import { playerError } from "@/features/players/errors";
+import { updatePlayer } from "@/features/players/lifecycle";
 
 export async function GET(_: NextRequest, { params }: { params: { id: string } }) {
-  const id = Number(params.id);
-  if (!Number.isInteger(id)) return NextResponse.json({ error: "ID inválido" }, { status: 400 });
-  const player = await prisma.player.findFirst({
-    where: { id, isHidden: false },
-    include: {
-      participations: {
-        where: { match: { isHidden: false } },
-        include: { team: true, match: true },
-        orderBy: { match: { playedAt: "desc" } },
+  try {
+    const id = parsePlayerId(params.id);
+    const player = await prisma.player.findFirst({
+      where: { id, isHidden: false },
+      include: {
+        participations: {
+          where: { match: { isHidden: false } },
+          include: { team: true, match: true },
+          orderBy: { match: { playedAt: "desc" } },
+        },
       },
-    },
-  });
-  return player ? NextResponse.json(player) : NextResponse.json({ error: "Jugador no encontrado" }, { status: 404 });
+    });
+    return player ? NextResponse.json(player) : NextResponse.json({ error: "Jugador no encontrado." }, { status: 404 });
+  } catch (error) {
+    const failure = playerError(error, "No se pudo cargar el jugador.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
+  }
 }
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     await requireRole("ADMIN");
-    const id = Number(params.id);
-    const body = await request.json();
-    if (body.isHidden === true) {
-      const participations = await prisma.matchParticipation.count({ where: { playerId: id } });
-      if (participations) return NextResponse.json({ error: "No se puede ocultar un jugador con historial" }, { status: 409 });
-    }
-    return NextResponse.json(await prisma.player.update({
-      where: { id },
-      data: {
-        ...(body.firstName !== undefined && { firstName: body.firstName.trim() }),
-        ...(body.lastName !== undefined && { lastName: body.lastName?.trim() || null }),
-        ...(body.nickname !== undefined && { nickname: body.nickname?.trim() || null }),
-        ...(body.photoUrl !== undefined && { photoUrl: body.photoUrl || null }),
-        ...(body.birthDate !== undefined && { birthDate: body.birthDate ? new Date(`${body.birthDate}T12:00:00Z`) : null }),
-        ...(body.isActive !== undefined && { isActive: Boolean(body.isActive) }),
-        ...(body.isHidden !== undefined && { isHidden: Boolean(body.isHidden) }),
-      },
-    }));
+    const id = parsePlayerId(params.id);
+    const input = playerUpdateSchema.parse(await request.json());
+    const player = await prisma.$transaction(tx => updatePlayer(tx, id, input), { isolationLevel: "Serializable" });
+    return NextResponse.json(player);
   } catch (error) {
-    return NextResponse.json({ error: "No se pudo actualizar el jugador" }, { status: authErrorStatus(error) });
+    const failure = playerError(error, "No se pudo actualizar el jugador.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
   }
 }
 
-export async function DELETE(_: NextRequest, context: { params: { id: string } }) {
-  return PUT(new NextRequest("http://local", { method: "PUT", body: JSON.stringify({ isHidden: true }) }), context);
+export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    await requireRole("ADMIN");
+    const id = parsePlayerId(params.id);
+    const player = await prisma.$transaction(tx => updatePlayer(tx, id, { isHidden: true }), { isolationLevel: "Serializable" });
+    return NextResponse.json(player);
+  } catch (error) {
+    const failure = playerError(error, "No se pudo borrar el jugador.");
+    return NextResponse.json({ error: failure.message }, { status: failure.status });
+  }
 }

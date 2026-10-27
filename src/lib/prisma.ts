@@ -3,6 +3,9 @@
 // (Next.js recarga módulos con hot reload, esto lo previene)
 
 import { PrismaClient } from "@prisma/client";
+import { assertPreviewDatabase } from "./previewDatabase";
+
+assertPreviewDatabase();
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
 

@@ -6,24 +6,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireRole, authErrorStatus } from "@/features/auth/session";
+import { ImageInputError, validateImageData } from "@/features/auth/upload-image";
 
 export async function POST(req: NextRequest) {
   try {
     await requireRole("ADMIN");
-    const { imagen } = await req.json();
-
-    if (!imagen) {
-      return NextResponse.json(
-        { error: "No se recibió imagen" },
-        { status: 400 }
-      );
-    }
-    if (typeof imagen !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(imagen)) {
-      return NextResponse.json({ error: "Formato de imagen inválido" }, { status: 400 });
-    }
-    if (imagen.length > 7 * 1024 * 1024) {
-      return NextResponse.json({ error: "La imagen supera el límite permitido" }, { status: 413 });
-    }
+    const input = await req.json();
+    const imagen = validateImageData(input?.imagen);
 
     const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
     const apiKey = process.env.CLOUDINARY_API_KEY;
@@ -56,19 +45,26 @@ export async function POST(req: NextRequest) {
 
     const response = await fetch(
       `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
-      { method: "POST", body: formData }
+      { method: "POST", body: formData, signal: AbortSignal.timeout(20_000) }
     );
 
     if (!response.ok) {
-      const err = await response.json();
-      console.error("Cloudinary error:", err);
+      const failure = await response.json().catch(() => null);
+      const disabledKey = typeof failure?.error?.message === "string" && /disabled api_key/i.test(failure.error.message);
+      // Never forward provider errors: they can contain API keys or signatures.
+      const message = disabledKey
+        ? "La clave de Cloudinary está deshabilitada. Habilitala o configurá una clave activa."
+        : response.status === 401 || response.status === 403
+          ? "Cloudinary rechazó las credenciales. Revisá la configuración de la cuenta."
+          : "Cloudinary no pudo subir la imagen. Volvé a intentar.";
       return NextResponse.json(
-        { error: "Error al subir imagen a Cloudinary" },
-        { status: 500 }
+        { error: message },
+        { status: disabledKey || response.status === 401 || response.status === 403 ? 503 : 502 }
       );
     }
 
     const data = await response.json();
+    if (typeof data.secure_url !== "string" || !data.secure_url.startsWith(`https://res.cloudinary.com/${cloudName}/image/upload/`)) throw new Error("INVALID_UPLOAD_RESPONSE");
 
     // Devolver la URL con transformación: 400x400, recortado al centro
     const urlOptimizada = data.secure_url.replace(
@@ -78,7 +74,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ url: urlOptimizada });
   } catch (error) {
-    console.error("Error en upload:", error);
+    if (error instanceof ImageInputError) return NextResponse.json({ error: error.message }, { status: error.status });
+    if (error instanceof SyntaxError) return NextResponse.json({ error: "La solicitud no es válida." }, { status: 400 });
     return NextResponse.json(
       { error: "Error interno al procesar imagen" },
       { status: authErrorStatus(error) }

@@ -8,11 +8,11 @@ type FormItem = {
   title: string;
 };
 
-export default function PlayerForm({ items }: { items: FormItem[] }) {
+export default function PlayerForm({ items, compact = false }: { items: FormItem[]; compact?: boolean }) {
   const form = calculateClassicForm(items.map((item) => item.result));
   const chronological = [...items].reverse();
 
-  return <div className="player-form-block">
+  return <div className={`player-form-block${compact ? " player-form-compact" : ""}`}>
     <div className="classic-form" title={`Forma ${form.label.toLowerCase()} (${form.score})`} aria-label={`Forma ${form.label.toLowerCase()}, puntuación ${form.score}`}>
       <span className={`form-arrow arrow-${form.direction}`} aria-hidden="true">{form.symbol}</span>
       <span><small>Forma</small><strong>{form.label}</strong></span>
