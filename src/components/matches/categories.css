@@ -1,0 +1,5 @@
+.category-picker { min-width: 0; margin: 0; padding: 12px; border: 1px solid #c4c4ca; border-radius: 12px; }
+.category-picker legend { font-size: 13px; font-weight: 600; padding: 0 4px; }
+.category-picker label { min-height: 38px; font-size: 13px; cursor: pointer; }
+.category-picker input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; flex-shrink: 0; padding: 0; accent-color: #647600; }
+.category-picker .muted { display: block; margin-top: 4px; font-size: 11px; }

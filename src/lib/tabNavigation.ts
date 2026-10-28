@@ -7,6 +7,7 @@ export const primaryTabs = [
 ] as const;
 
 export function getPrimaryTabIndex(pathname: string) {
+  if (pathname === "/canchas" || pathname.startsWith("/canchas/")) return 1;
   return primaryTabs.findIndex(({ href }) => href === "/"
     ? pathname === "/"
     : pathname === href || pathname.startsWith(`${href}/`));

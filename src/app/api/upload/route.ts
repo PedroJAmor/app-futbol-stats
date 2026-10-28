@@ -16,6 +16,9 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const actor = await requireRole("ADMIN");
     const input = await readJsonBody(req, 7 * 1024 * 1024);
+    const purpose = (input as { purpose?: unknown } | null)?.purpose ?? "player";
+    if (!["player", "venue", "court"].includes(purpose as string)) throw new ImageInputError("Destino de imagen inválido.");
+    const folder = purpose === "venue" ? "predios" : purpose === "court" ? "canchas" : "jugadores";
     const imagen = validateImageData((input as { imagen?: unknown } | null)?.imagen);
     await consumeUploadRateLimit(actor.id);
 
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // Firma Cloudinary por defecto: sha1(folder=jugadores&timestamp=...&api_secret)
     const crypto = await import("crypto");
-    const toSign = `folder=jugadores&timestamp=${timestamp}${apiSecret}`;
+    const toSign = `folder=${folder}&timestamp=${timestamp}${apiSecret}`;
     const signature = crypto
       .createHash("sha1")
       .update(toSign)
@@ -43,7 +46,7 @@ export async function POST(req: NextRequest) {
 
     const formData = new FormData();
     formData.append("file", imagen); // base64 con prefijo data:image/...
-    formData.append("folder", "jugadores");
+    formData.append("folder", folder);
     formData.append("timestamp", String(timestamp));
     formData.append("api_key", apiKey);
     formData.append("signature", signature);
@@ -74,7 +77,7 @@ export async function POST(req: NextRequest) {
     // Devolver la URL con transformación: 400x400, recortado al centro
     const urlOptimizada = data.secure_url.replace(
       "/upload/",
-      "/upload/c_fill,w_400,h_400/"
+      purpose === "player" ? "/upload/c_fill,w_400,h_400/" : "/upload/c_limit,w_1200/"
     );
 
     return NextResponse.json({ url: urlOptimizada });

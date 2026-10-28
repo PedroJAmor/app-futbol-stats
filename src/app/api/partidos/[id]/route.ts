@@ -1,3 +1,4 @@
+import { resolveMatchLocation } from "@/features/matches/location";
 import { checkReadRateLimit } from "@/features/security/rate-limit";
 import { assertSameOrigin, readJsonBody } from "@/features/security/request";
 import { securityErrorResponse } from "@/features/security/errors";
@@ -11,7 +12,7 @@ import { matchError, parseMatchId } from "@/features/matches/errors";
 import { validateParticipants } from "@/features/matches/participants";
 import { resolveVenueId } from "@/features/matches/venues";
 
-const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } }, mvp: true, venue: true };
+const include = { teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } }, defendedGoal: true } }, mvp: true, venue: true, court: { include: { goals: { orderBy: { position: "asc" as const } } } } };
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +46,15 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const match = await prisma.$transaction(async (tx) => {
       await validateParticipants(tx, input);
       const venueId = await resolveVenueId(tx, input);
+      const previous = await tx.match.findUniqueOrThrow({ where: { id }, include: { teams: true } });
+      const location = await resolveMatchLocation(tx, input, venueId, previous);
       await tx.matchParticipation.deleteMany({ where: { matchId: id } });
       await tx.match.update({
         where: { id },
         data: {
           playedAt: argentinaFormToUtc(input.date, input.time), format: input.format,
+          category: input.category === undefined ? previous.category : input.category,
+          courtId: location.courtId, locationIsDemo: location.locationIsDemo,
           venueId, priceCents: input.priceCents ?? null,
           weather: input.weather || null, temperature: input.temperature,
           notes: input.notes || null, mvpId: input.mvpId,
@@ -58,8 +63,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       for (const team of input.teams) {
         const saved = await tx.matchTeam.upsert({
           where: { matchId_side: { matchId: id, side: team.side } },
-          update: { color: team.color, result: team.result },
-          create: { matchId: id, side: team.side, color: team.color, result: team.result },
+          update: { color: team.color, result: team.result, defendedGoalId: team.side === "A" ? location.aGoalId : location.bGoalId },
+          create: { matchId: id, side: team.side, color: team.color, result: team.result, defendedGoalId: team.side === "A" ? location.aGoalId : location.bGoalId },
         });
         await tx.matchParticipation.createMany({
           data: team.playerIds.map((playerId) => ({ matchId: id, teamId: saved.id, playerId })),

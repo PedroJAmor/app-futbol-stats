@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
+import type { MatchFiltersValue } from "@/features/matches/filters";
 import { useRouter } from "next/navigation";
 import MatchCard from "@/components/MatchCard";
 import MatchEditor from "./MatchEditor";
@@ -11,13 +13,15 @@ import { emptyMatchFilters, parseMatchFilters, serializeMatchFilters } from "@/f
 type MatchItem = Parameters<typeof MatchCard>[0]["match"];
 type FilterProps = Pick<Parameters<typeof MatchFilters>[0], "formats" | "venues" | "players">;
 
-export default function MatchesDirectory({ matches, formats, venues, players }: { matches: MatchItem[] } & FilterProps) {
+export default function MatchesDirectory({ matches, formats, venues, players, initialFilters, initialFilterError }: { matches: MatchItem[]; initialFilters?: MatchFiltersValue; initialFilterError?: string } & FilterProps) {
   const { data: session } = useSession();
   const [creating, setCreating] = useState(false);
-  const [filters, setFilters] = useState(emptyMatchFilters);
-  const [filteredMatches, setFilteredMatches] = useState(matches);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [filters, setFilters] = useState(initialFilters ?? emptyMatchFilters());
+  const initialKey = initialFilters ? serializeMatchFilters(initialFilters).toString() : "";
+  const [filteredMatches, setFilteredMatches] = useState<MatchItem[]>(initialKey ? [] : matches);
+  const [loading, setLoading] = useState(Boolean(initialKey));
+  const [invalidDeepLink, setInvalidDeepLink] = useState(Boolean(initialFilterError));
+  const [error, setError] = useState(initialFilterError ?? "");
   const [retry, setRetry] = useState(0);
   const [includeHidden, setIncludeHidden] = useState(false);
   const [restoring, setRestoring] = useState<number | null>(null);
@@ -25,11 +29,18 @@ export default function MatchesDirectory({ matches, formats, venues, players }: 
   const restoringRef = useRef(false);
   const router = useRouter();
   const isAdmin = session?.user.role === "ADMIN" || session?.user.role === "SUPERADMIN";
-  const hasFilters = Boolean(filters.dateFrom || filters.dateTo || filters.format || filters.venueId || filters.playerIds.length);
+  const hasFilters = Boolean(filters.dateFrom || filters.dateTo || filters.format || filters.venueId || filters.courtId || filters.categories?.length || filters.playerIds.length);
   const showHidden = isAdmin && includeHidden;
   const needsQuery = hasFilters || showHidden;
 
   useEffect(() => {
+    setFilters(initialFilters ?? emptyMatchFilters());
+    setInvalidDeepLink(Boolean(initialFilterError));
+    setError(initialFilterError ?? "");
+  }, [initialKey, initialFilterError]);
+
+  useEffect(() => {
+    if (invalidDeepLink) return;
     setError("");
     if (!needsQuery) {
       setFilteredMatches(matches);
@@ -63,9 +74,16 @@ export default function MatchesDirectory({ matches, formats, venues, players }: 
       }
     }, 180);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [filters, needsQuery, showHidden, matches, retry]);
+  }, [filters, needsQuery, showHidden, matches, retry, invalidDeepLink]);
 
   const visibleMatches = (needsQuery ? filteredMatches : matches).filter(match => showHidden || !match.isHidden);
+  function changeFilters(next: MatchFiltersValue) {
+    setInvalidDeepLink(false);
+    setFilters(next);
+    const query = serializeMatchFilters(next).toString();
+    window.history.replaceState(window.history.state, "", `/partidos${query ? `?${query}` : ""}`);
+  }
+
   async function restoreMatch(id: number) {
     if (restoringRef.current) return;
     restoringRef.current = true;
@@ -88,9 +106,10 @@ export default function MatchesDirectory({ matches, formats, venues, players }: 
   return <>
     <section className="directory-heading">
       <p className="directory-count" role="status" aria-live="polite">{loading ? "Actualizando partidos…" : error ? "No se pudo actualizar el listado" : showHidden ? `${visibleMatches.length} partidos, incluidos ocultos` : hasFilters ? `${visibleMatches.length} de ${matches.length} partidos` : `${matches.length} partidos jugados`}</p>
+      <Link className="button" href="/canchas">Canchas</Link>
       {isAdmin && <button className="button primary" onClick={() => setCreating(true)}>+ Crear partido</button>}
     </section>
-    <MatchFilters value={filters} onChange={setFilters} formats={formats} venues={venues} players={players} />
+    <MatchFilters value={filters} onChange={changeFilters} formats={formats} venues={venues} players={players} defaultOpen={Boolean(initialFilters && serializeMatchFilters(initialFilters).size)} />
     {isAdmin && <label className="match-visibility-filter"><input type="checkbox" checked={includeHidden} onChange={event => setIncludeHidden(event.target.checked)} />Mostrar partidos ocultos</label>}
     {error && <div className="stack" role="alert"><p className="error">{error}</p><button className="button" type="button" onClick={() => setRetry(current => current + 1)}>Reintentar</button></div>}
     {restoreError && <p className="error" role="alert">{restoreError}</p>}

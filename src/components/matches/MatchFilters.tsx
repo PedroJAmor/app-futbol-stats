@@ -1,12 +1,13 @@
 "use client";
 
+import CategoryPicker from "./CategoryPicker";
 import { useState } from "react";
 import { emptyMatchFilters, type MatchFiltersValue } from "@/features/matches/filters";
 
 export { emptyMatchFilters, type MatchFiltersValue } from "@/features/matches/filters";
 
 type PlayerOption = { id: number; name: string };
-type VenueOption = { id: number; name: string };
+type VenueOption = { id: number; name: string; courts?: { id: number; name: string; format: number | null }[] };
 
 function normalize(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase("es").trim();
@@ -24,7 +25,7 @@ export default function MatchFilters({ value, onChange, players, venues, formats
   const [query, setQuery] = useState("");
   const selected = players.filter(player => value.playerIds.includes(player.id));
   const options = players.filter(player => !value.playerIds.includes(player.id) && normalize(player.name).includes(normalize(query)));
-  const activeCount = [value.dateFrom || value.dateTo, value.format, value.venueId, value.playerIds.length > 0].filter(Boolean).length;
+  const activeCount = [value.dateFrom || value.dateTo, value.format, value.venueId, value.courtId, value.categories?.length, value.playerIds.length > 0].filter(Boolean).length;
 
   function setPlayers(ids: number[]) {
     onChange({ ...value, playerIds: ids, sameTeam: ids.length >= 2 && value.sameTeam });
@@ -36,8 +37,10 @@ export default function MatchFilters({ value, onChange, players, venues, formats
       <label className="field">Desde<input type="date" value={value.dateFrom} max={value.dateTo || undefined} onChange={event => onChange({ ...value, dateFrom: event.target.value })} /></label>
       <label className="field">Hasta<input type="date" value={value.dateTo} min={value.dateFrom || undefined} onChange={event => onChange({ ...value, dateTo: event.target.value })} /></label>
       <label className="field">Formato<select aria-label="Formato" value={value.format} onChange={event => onChange({ ...value, format: event.target.value })}><option value="">Todos</option>{formats.map(format => <option key={format} value={format}>F{format}</option>)}</select></label>
-      <label className="field">Cancha<select value={value.venueId} onChange={event => onChange({ ...value, venueId: event.target.value })}><option value="">Todas las canchas</option>{venues.map(venue => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>
+      <label className="field">Predio<select value={value.venueId} onChange={event => onChange({ ...value, venueId: event.target.value, courtId: "" })}><option value="">Todos los predios</option>{venues.map(venue => <option key={venue.id} value={venue.id}>{venue.name}</option>)}</select></label>
+      <label className="field">Cancha física<select disabled={!value.venueId} value={value.courtId ?? ""} onChange={event => onChange({ ...value, courtId: event.target.value })}><option value="">Todas las canchas</option>{venues.find(venue => String(venue.id) === value.venueId)?.courts?.map(court => <option key={court.id} value={court.id}>{court.name}</option>)}</select></label>
     </div>
+    <CategoryPicker value={value.categories ?? []} onChange={categories => onChange({ ...value, categories })} />
     <fieldset className="match-filter-players">
       <legend>Jugadores</legend>
       <p className="match-filter-help">El partido debe incluir a todos los jugadores que selecciones.</p>

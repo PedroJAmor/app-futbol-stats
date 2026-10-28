@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { matchCategories } from "./categories";
 import { isCalendarDate } from "@/lib/dates";
 
 const positiveInt = z.number().int().positive().max(2_147_483_647);
@@ -14,6 +15,10 @@ export const matchInputSchema = z.object({
   date: z.string().refine(isCalendarDate, "La fecha no es válida"),
   time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "La hora no es válida"),
   format: positiveInt,
+  category: z.enum(matchCategories).nullish(),
+  courtId: positiveInt.nullish(),
+  aGoalId: positiveInt.nullish(),
+  confirmLocation: z.boolean().optional(),
   venueId: positiveInt.nullish(),
   newVenueName: z.string().trim().min(1).max(100).nullish(),
   priceCents: z.number().int().nonnegative().max(2_147_483_647).nullish(),

@@ -29,3 +29,22 @@ it("mantiene el panel abierto al agregar varios jugadores y permite limpiarlos",
     expect(details.open).toBe(true);
   } finally { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
 });
+
+it("seleccionar otro predio limpia su cancha física y admite varios tipos", () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const host = document.createElement("div"); document.body.append(host); const root = createRoot(host);
+  const changed = vi.fn();
+  function Filters() {
+    const [value, setValue] = useState(() => ({ ...emptyMatchFilters(), venueId: "1", courtId: "4" }));
+    return <MatchFilters value={value} onChange={next => { setValue(next); changed(next); }} players={[]} venues={[{ id: 1, name: "Rebote", courts: [{ id: 4, name: "F7", format: 7 }] }, { id: 2, name: "Corner", courts: [] }]} formats={[5,7]} />;
+  }
+  try {
+    act(() => root.render(<Filters />));
+    const predio = [...host.querySelectorAll("label")].find(label => label.textContent?.startsWith("Predio"))!.querySelector("select")!;
+    act(() => { predio.value = "2"; predio.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ venueId: "2", courtId: "" }));
+    const checks = host.querySelectorAll<HTMLInputElement>('.category-picker input');
+    act(() => checks[0].click()); act(() => checks[1].click());
+    expect(changed).toHaveBeenLastCalledWith(expect.objectContaining({ categories: ["LEAGUE", "MIDWEEK"] }));
+  } finally { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); }
+});

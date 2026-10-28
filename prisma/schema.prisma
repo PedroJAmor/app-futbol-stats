@@ -20,6 +20,12 @@ enum LegacyRole {
   VIEWER
 }
 
+enum MatchCategory {
+  LEAGUE
+  MIDWEEK
+  SPECIAL
+}
+
 enum MatchResult {
   WIN
   LOSS
@@ -122,6 +128,10 @@ model Venue {
   id             Int      @id @default(autoincrement())
   name           String
   normalizedName String   @unique
+  address        String?
+  mapUrl         String?
+  photoUrl       String?
+  courts         Court[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   matches        Match[]
@@ -129,10 +139,41 @@ model Venue {
   @@index([name])
 }
 
+model Court {
+  id             Int      @id @default(autoincrement())
+  venueId        Int
+  venue          Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  name           String
+  normalizedName String
+  format         Int?
+  photoUrl       String?
+  goals          Goal[]
+  matches        Match[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([venueId, normalizedName])
+}
+
+model Goal {
+  id       Int         @id @default(autoincrement())
+  courtId  Int
+  court    Court       @relation(fields: [courtId], references: [id], onDelete: Cascade)
+  position Int
+  name     String
+  teams    MatchTeam[]
+
+  @@unique([courtId, position])
+}
+
 model Match {
   id             Int                  @id @default(autoincrement())
   playedAt       DateTime
   format         Int
+  category       MatchCategory?
+  courtId        Int?
+  court          Court?               @relation(fields: [courtId], references: [id], onDelete: SetNull)
+  locationIsDemo Boolean              @default(false)
   venueId        Int?
   venue          Venue?               @relation(fields: [venueId], references: [id], onDelete: SetNull)
   priceCents     Int?
@@ -152,6 +193,8 @@ model Match {
   @@index([isHidden, playedAt(sort: Desc)])
   @@index([mvpId])
   @@index([venueId])
+  @@index([courtId, playedAt])
+  @@index([category, playedAt])
 }
 
 model MatchTeam {
@@ -161,8 +204,11 @@ model MatchTeam {
   side           TeamSide
   color          String
   result         MatchResult
+  defendedGoalId Int?
+  defendedGoal   Goal?                @relation(fields: [defendedGoalId], references: [id], onDelete: SetNull)
   participations MatchParticipation[]
 
+  @@index([defendedGoalId])
   @@unique([matchId, side])
   @@index([matchId])
 }

@@ -91,3 +91,11 @@ it("rechaza listas excesivas antes de construir condiciones SQL", () => {
   expect(() => parse(`playerIds=${"1".repeat(1200)}`)).toThrow("100");
   expect(parse(`playerIds=${ids.split(",").slice(0, 100).join(",")}`).playerIds).toHaveLength(100);
 });
+it("combina categorías por unión y cancha por intersección, conservando el enlace", () => {
+  const filters = parse("venueId=2&courtId=4&categories=LEAGUE,MIDWEEK,LEAGUE");
+  expect(filters.categories).toEqual(["LEAGUE", "MIDWEEK"]);
+  expect(parseMatchFilters(serializeMatchFilters(filters))).toEqual(filters);
+  expect(buildMatchFilterWhere(filters)).toEqual({ isHidden: false, venueId: 2, courtId: 4, category: { in: ["LEAGUE", "MIDWEEK"] } });
+  expect(() => parse("categories=ADMIN")).toThrow();
+  expect(() => parse("courtId=-1")).toThrow();
+});

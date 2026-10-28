@@ -9,6 +9,9 @@ describe("primary tab swipe navigation", () => {
     expect(getPrimaryTabIndex("/")).toBe(0);
     expect(getPrimaryTabIndex("/jugadores/12")).toBe(2);
     expect(getPrimaryTabIndex("/partidos/56")).toBe(1);
+    expect(getPrimaryTabIndex("/canchas")).toBe(1);
+    expect(getPrimaryTabIndex("/canchas/3/pistas/7")).toBe(1);
+    expect(getPrimaryTabIndex("/canchas-extra")).toBe(-1);
   });
 
   it("moves left to the next tab and right to the previous one", () => {

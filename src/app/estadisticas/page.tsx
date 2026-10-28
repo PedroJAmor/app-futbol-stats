@@ -3,6 +3,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { PlayerTableRow } from "@/components/players/PlayerLink";
 import { lineupPlayerName, playerGivenNameKey } from "@/lib/displayName";
+import GoalStats from "@/components/stats/GoalStats";
+import CategoryPicker from "@/components/matches/CategoryPicker";
+import type { Category } from "@/features/matches/categories";
 import type { PlayerStats } from "@/lib/stats";
 
 type SortColumn = "pj" | "v" | "e" | "d" | "pts" | "pctV" | "pctD";
@@ -24,6 +27,7 @@ export default function StatsPage() {
   const [allPlayers, setAllPlayers] = useState<PlayerStats[]>([]);
   const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [format, setFormat] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [minimumMatches, setMinimumMatches] = useState("0");
@@ -65,11 +69,12 @@ export default function StatsPage() {
   const filterParams = useMemo(() => {
     const params = new URLSearchParams();
     if (format) params.set("format", format);
+    if (categories.length) params.set("categories", categories.join(","));
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (minimumMatches && minimumMatches !== "0") params.set("minimumMatches", minimumMatches);
     return params;
-  }, [dateFrom, dateTo, format, minimumMatches]);
+  }, [dateFrom, dateTo, format, minimumMatches, categories]);
 
   const unfilteredPlayersRetry = filterParams.size === 0 ? playersRetry : 0;
 
@@ -170,7 +175,7 @@ export default function StatsPage() {
   }
 
   function resetFilters() {
-    setFormat(""); setDateFrom(""); setDateTo(""); setMinimumMatches("0"); setGroupStats(null);
+    setFormat(""); setDateFrom(""); setDateTo(""); setMinimumMatches("0"); setCategories([]); setGroupStats(null);
   }
 
   const playerById = new Map(allPlayers.map((player) => [player.playerId, player]));
@@ -195,6 +200,7 @@ export default function StatsPage() {
         <label className="field">Hasta<input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
         <label className="field">Mínimo de partidos<input type="number" min="0" value={minimumMatches} onChange={(event) => setMinimumMatches(event.target.value)} /></label>
       </div>
+      <CategoryPicker value={categories} onChange={setCategories} />
       <button className="button" type="button" onClick={resetFilters}>Limpiar filtros</button>
     </details>
 
@@ -213,6 +219,7 @@ export default function StatsPage() {
       {comparisonError && <p className="error" role="alert">{comparisonError}</p>}
       {groupStats && <Comparison stats={groupStats} playerById={playerById} selected={selected} />}
     </section>
+    <GoalStats />
   </div>;
 }
 

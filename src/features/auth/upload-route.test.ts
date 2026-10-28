@@ -35,3 +35,19 @@ it("conserva la respuesta de la foto optimizada cuando la subida funciona", asyn
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual({ url: "https://res.cloudinary.com/test-cloud/image/upload/c_fill,w_400,h_400/v1/jugadores/photo.png" });
 });
+
+it("las fotos de predio conservan su proporción y usan una carpeta controlada", async () => {
+  configure(200, { secure_url: "https://res.cloudinary.com/test-cloud/image/upload/v1/predios/photo.png" });
+  const req = new NextRequest("http://localhost/api/upload", { method: "POST", body: JSON.stringify({ imagen: "data:image/png;base64,iVBORw0KGgo=", purpose: "venue" }), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
+  const response = await POST(req);
+  expect(response.status).toBe(200);
+  expect((await response.json()).url).toContain("/upload/c_limit,w_1200/");
+  expect(vi.mocked(fetch).mock.calls[0][1]?.body).toBeInstanceOf(FormData);
+  expect((vi.mocked(fetch).mock.calls[0][1]?.body as FormData).get("folder")).toBe("predios");
+});
+it("no admite carpetas arbitrarias enviadas por el navegador", async () => {
+  configure(200, {});
+  const req = new NextRequest("http://localhost/api/upload", { method: "POST", body: JSON.stringify({ imagen: "data:image/png;base64,iVBORw0KGgo=", purpose: "../../other" }), headers: { "Content-Type": "application/json", Origin: "http://localhost" } });
+  expect((await POST(req)).status).toBe(400);
+  expect(fetch).not.toHaveBeenCalled();
+});

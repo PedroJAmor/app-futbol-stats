@@ -48,6 +48,7 @@ describe("carga de estadísticas", () => {
   it("comparte una sola carga inicial entre la tabla y el selector", async () => {
     await render();
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(host.querySelector(".goal-stats summary")?.textContent).toBe("Estadísticas por arco");
     expect(host.querySelector(".stats-ranking")?.textContent).toContain("Mimi");
     await selectPlayers();
     expect(host.querySelectorAll(".selected-list button")).toHaveLength(2);

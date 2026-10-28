@@ -1,0 +1,27 @@
+.monthly-teams { margin-bottom: 30px; }
+.monthly-caption { margin: 0; }
+.monthly-caption::first-letter { text-transform: uppercase; }
+.monthly-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.monthly-team { min-width: 0; }
+.monthly-team h3 { margin: 0; font-size: 17px; }
+.monthly-team .section-heading > span { font-size: 12px; color: #62636a; }
+.monthly-team ol { margin: 0; padding: 0; list-style: none; }
+.monthly-team li + li { border-top: 1px solid #ddd; }
+.monthly-team li a { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 0; text-decoration: none; }
+.monthly-team li a span { overflow-wrap: anywhere; }
+.monthly-team li small { color: #62636a; white-space: nowrap; }
+.monthly-team li strong { min-width: 25px; text-align: right; }
+.goal-stats { margin-top: 28px; }
+.goal-stats > summary { cursor: pointer; color: var(--lime); font-size: 19px; font-weight: 600; padding: 12px 0; }
+.goal-stats-content { padding-top: 10px; }
+.goal-venue h3 { margin-bottom: 0; }
+.goal-court h4 { margin: 0; }
+.goal-court p { margin: 0; }
+.goal-results { width: 100%; }
+.goal-results-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; text-align: center; }
+.goal-results-row > div { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.goal-results span { overflow-wrap: anywhere; font-size: 13px; }
+.goal-results strong { font-size: 22px; }
+.goal-results small { color: #62636a; }
+.demo-assignment { color: #73510a; background: #fff2c7; padding: 10px; border-radius: 10px; font-size: 12px; }
+@media (min-width: 768px) { .monthly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

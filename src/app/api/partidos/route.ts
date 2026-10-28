@@ -1,3 +1,5 @@
+import { resolveMatchLocation } from "@/features/matches/location";
+import { suggestCategory } from "@/features/matches/categories";
 import { checkReadRateLimit } from "@/features/security/rate-limit";
 import { assertSameOrigin, readJsonBody } from "@/features/security/request";
 import { securityErrorResponse } from "@/features/security/errors";
@@ -14,9 +16,10 @@ import { buildMatchFilterWhere, parseMatchFilters } from "@/features/matches/fil
 import { matchCardSelect, toMatchCard } from "@/features/matches/cards";
 
 const matchInclude = {
-  teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } } } },
+  teams: { orderBy: { side: "asc" as const }, include: { participations: { include: { player: true } }, defendedGoal: true } },
   mvp: true,
   venue: true,
+  court: { include: { goals: { orderBy: { position: "asc" as const } } } },
 };
 
 export const dynamic = "force-dynamic";
@@ -56,9 +59,13 @@ export async function POST(request: NextRequest) {
     const match = await prisma.$transaction(async (tx) => {
       await validateParticipants(tx, input);
       const venueId = await resolveVenueId(tx, input);
+      const location = await resolveMatchLocation(tx, input, venueId);
       const created = await tx.match.create({ data: {
         playedAt: argentinaFormToUtc(input.date, input.time),
         format: input.format,
+        category: input.category ?? suggestCategory(input.date, input.format),
+        courtId: location.courtId,
+        locationIsDemo: false,
         venueId,
         priceCents: input.priceCents ?? null,
         weather: input.weather || null,
@@ -68,7 +75,7 @@ export async function POST(request: NextRequest) {
       } });
       for (const team of input.teams) {
         const savedTeam = await tx.matchTeam.create({
-          data: { matchId: created.id, side: team.side, color: team.color, result: team.result },
+          data: { matchId: created.id, side: team.side, color: team.color, result: team.result, defendedGoalId: team.side === "A" ? location.aGoalId : location.bGoalId },
         });
         await tx.matchParticipation.createMany({
           data: team.playerIds.map((playerId) => ({ matchId: created.id, teamId: savedTeam.id, playerId })),

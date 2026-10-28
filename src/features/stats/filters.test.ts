@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildPublicMatchWhere } from "@/lib/stats";
 import { parseComparisonIds, parseStatsFilter } from "./filters";
 
 describe("filtros de estadísticas", () => {
@@ -18,4 +19,10 @@ it("acota la complejidad de las comparaciones", () => {
   const ids = Array.from({ length: 101 }, (_, i) => i + 1).join(",");
   expect(() => parseComparisonIds(new URLSearchParams({ ids }))).toThrow("100");
   expect(() => parseComparisonIds(new URLSearchParams({ ids: "1".repeat(1200) }))).toThrow("100");
+});
+
+it("combina predio, cancha y categorías sin perder las fechas ni ocultar el filtro público", () => {
+  const filters = parseStatsFilter(new URLSearchParams("venueId=2&courtId=10&categories=LEAGUE,SPECIAL&dateFrom=2026-09-01&dateTo=2026-09-30"));
+  expect(buildPublicMatchWhere(filters)).toMatchObject({ isHidden: false, venueId: 2, courtId: 10, category: { in: ["LEAGUE", "SPECIAL"] }, playedAt: { gte: new Date("2026-09-01T03:00:00Z"), lte: new Date("2026-10-01T02:59:59.999Z") } });
+  for (const query of ["courtId=-1", "courtId=0", "courtId=2147483648", "courtId=NaN", "categories=OTHER"]) expect(() => parseStatsFilter(new URLSearchParams(query))).toThrow();
 });

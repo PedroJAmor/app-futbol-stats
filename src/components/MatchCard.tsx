@@ -1,16 +1,18 @@
+import { categoryLabels, type Category } from "@/features/matches/categories";
 import Link from "next/link";
 import { formatArgentinaDate, formatArgentinaMatchDate } from "@/lib/dates";
 
 type MatchCardProps = {
   compact?: boolean;
+  showResult?: boolean;
   match: {
-    id: number; playedAt: Date | string; format: number; venue: string | null; isHidden?: boolean;
+    id: number; playedAt: Date | string; format: number; venue: string | null; isHidden?: boolean; category?: Category | null;
     teams: { color: string; result: string }[];
     mvp?: { firstName: string; lastName: string | null; nickname: string | null; legacyFullName: string | null } | null;
   };
 };
 
-export default function MatchCard({ match, compact = false }: MatchCardProps) {
+export default function MatchCard({ match, compact = false, showResult = false }: MatchCardProps) {
   const winner = match.teams.find((team) => team.result === "WIN");
   const result = winner ? `Ganó ${winner.color}` : "Empate";
   const dateTime = formatArgentinaMatchDate(match.playedAt);
@@ -21,13 +23,14 @@ export default function MatchCard({ match, compact = false }: MatchCardProps) {
     </div>
     <div className="match-card-footer">
       {compact ? <time dateTime={new Date(match.playedAt).toISOString()} title={dateTime}>{formatArgentinaDate(match.playedAt).slice(0, 5)}</time> :
-        <span className="match-location">{match.venue ?? "Sin cancha"} · F{match.format}</span>
+        <span className="match-location">{match.venue ?? "Sin predio"} · F{match.format} · {match.category ? categoryLabels[match.category] : "Sin clasificar"}</span>
       }
+      {showResult && !compact && <span className="match-history-result">{result}</span>}
     </div>
   </>;
   const className = `card match-card${compact ? " match-card-compact" : " match-card-dated"}`;
   if (match.isHidden) return <article className={className} aria-label={`Partido oculto. ${dateTime}`}>{content}</article>;
   return (
-    <Link href={`/partidos/${match.id}`} className={className} aria-label={`${dateTime}. ${match.venue ?? "Sin cancha"}. F${match.format}.${compact ? ` ${result}.` : ""}`}>{content}</Link>
+    <Link href={`/partidos/${match.id}`} className={className} aria-label={`${dateTime}. ${match.venue ?? "Sin predio"}. F${match.format}.${match.category ? ` ${categoryLabels[match.category]}.` : ""}${compact || showResult ? ` ${result}.` : ""}`}>{content}</Link>
   );
 }

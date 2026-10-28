@@ -116,3 +116,17 @@ it("Escape y backdrop no cierran el formulario mientras se guarda", async () => 
   await act(async () => { resolve(response({ id: 10 })); });
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it("carga cancha y arcos del predio y conserva la categoría elegida al guardar", async () => {
+  const venues = [{ id: 2, name: "Rebote", courts: [{ id: 4, name: "Cancha 1", format: 5, goals: [{ id: 11, name: "Pared" }, { id: 12, name: "Estacionamiento" }] }] }];
+  fetchMock.mockImplementation((url: string) => Promise.resolve(response(url.startsWith("/api/jugadores") ? players : venues)));
+  await act(async () => root.render(<MatchEditor match={{ ...match, format: 5, venueId: "2", courtId: "4", aGoalId: "11", category: "SPECIAL", locationIsDemo: true }} onClose={onClose} />));
+  expect(host.textContent).toContain("Oscuro: Estacionamiento");
+  const confirmation = [...host.querySelectorAll("label")].find(label => label.textContent?.includes("Confirmo que esta cancha"))!.querySelector<HTMLInputElement>("input")!;
+  act(() => confirmation.click());
+  fetchMock.mockResolvedValueOnce(response({ id: 10 }));
+  await submit();
+  const payload = JSON.parse(fetchMock.mock.calls[2][1].body);
+  expect(payload).toMatchObject({ category: "SPECIAL", courtId: 4, aGoalId: 11, confirmLocation: true });
+  expect(onClose).toHaveBeenCalledTimes(1);
+});

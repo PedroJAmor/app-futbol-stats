@@ -1,10 +1,13 @@
+import { parseCategories } from "@/features/matches/categories";
 import { MAX_FILTER_PLAYERS, parseMatchFilters } from "@/features/matches/filters";
 
 export function parseStatsFilter(params: URLSearchParams) {
   const filters = parseMatchFilters(params);
   const minimum = params.get("minimumMatches");
   if (minimum && (!/^\d+$/.test(minimum) || Number(minimum) > 2_147_483_647)) throw new Error("El mínimo de partidos debe ser un número entero válido.");
-  return { format: filters.format ? Number(filters.format) : undefined, dateFrom: filters.dateFrom || undefined, dateTo: filters.dateTo || undefined, minimumMatches: minimum ? Number(minimum) : 0 };
+  const rawCourt = params.get("courtId") ?? "";
+  if (rawCourt && (!/^\d+$/.test(rawCourt) || Number(rawCourt) < 1 || Number(rawCourt) > 2_147_483_647)) throw new Error("La cancha no es válida.");
+  return { categories: parseCategories(params), venueId: filters.venueId ? Number(filters.venueId) : undefined, courtId: rawCourt ? Number(rawCourt) : undefined, format: filters.format ? Number(filters.format) : undefined, dateFrom: filters.dateFrom || undefined, dateTo: filters.dateTo || undefined, minimumMatches: minimum ? Number(minimum) : 0 };
 }
 
 export function parseComparisonIds(params: URLSearchParams) {

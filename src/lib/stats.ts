@@ -1,3 +1,4 @@
+import type { Category } from "@/features/matches/categories";
 export const POINTS = { WIN: 4, DRAW: 2, LOSS: 1 } as const;
 
 export type ClassicForm = {
@@ -48,11 +49,14 @@ export type PlayerStats = {
   pctD: number;
 };
 
-export type StatsFilter = { format?: number; dateFrom?: string; dateTo?: string; minimumMatches?: number };
+export type StatsFilter = { format?: number; dateFrom?: string; dateTo?: string; minimumMatches?: number; categories?: Category[]; venueId?: number; courtId?: number };
 
 export function buildPublicMatchWhere(filter: StatsFilter = {}) {
   const where: Record<string, unknown> = { isHidden: false };
   if (filter.format) where.format = filter.format;
+  if (filter.categories?.length) where.category = { in: filter.categories };
+  if (filter.venueId) where.venueId = filter.venueId;
+  if (filter.courtId) where.courtId = filter.courtId;
   if (filter.dateFrom || filter.dateTo) {
     where.playedAt = {
       ...(filter.dateFrom && { gte: new Date(`${filter.dateFrom}T00:00:00-03:00`) }),
