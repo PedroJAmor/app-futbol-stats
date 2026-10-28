@@ -45,10 +45,10 @@ describe("catálogo y canchas", () => {
     expect(mocks.goal.upsert).toHaveBeenCalledTimes(2);
     expect(mocks.goal.upsert.mock.calls[0][0]).toMatchObject({ where: { courtId_position: { courtId: 2, position: 0 } }, update: { name: "Buffet" } });
   });
-  it("bloquea formato incompatible con partidos y cancha de otro predio", async () => {
+  it("permite formatos de partido diferentes y bloquea cancha de otro predio", async () => {
     mocks.match.count.mockResolvedValue(1);
-    await expect(saveCourt(tx, 1, { name: "F5", format: 5 }, 2)).rejects.toThrow("partidos de otro formato");
-    expect(mocks.court.update).not.toHaveBeenCalled();
+    await saveCourt(tx, 1, { name: "F5", format: 5 }, 2);
+    expect(mocks.court.update).toHaveBeenCalled();
     mocks.court.findFirst.mockResolvedValue(null);
     await expect(saveCourt(tx, 1, { name: "F5" }, 2)).rejects.toThrow("no pertenece");
   });

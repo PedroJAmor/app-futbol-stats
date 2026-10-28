@@ -40,7 +40,6 @@ export async function saveCourt(tx: Prisma.TransactionClient, venueId: number, i
   if (courtId) {
     const court = await tx.court.findFirst({ where: { id: courtId, venueId }, select: { id: true } });
     if (!court) throw new VenueError("La cancha no pertenece a este predio.", 404);
-    if (input.format != null && await tx.match.count({ where: { courtId, format: { not: input.format } } })) throw new VenueError("Esta cancha tiene partidos de otro formato. Revisá esos partidos antes de cambiarlo.", 409);
   }
   const data = { name: input.name, normalizedName: input.name.toLocaleLowerCase("es-AR"), format: input.format ?? null, photoUrl: input.photoUrl || null };
   const court = courtId ? await tx.court.update({ where: { id: courtId }, data }) : await tx.court.create({ data: { ...data, venueId } });

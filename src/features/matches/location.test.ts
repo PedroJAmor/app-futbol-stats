@@ -10,9 +10,9 @@ it("admite partidos sin cancha/arcos y no consulta el catálogo", async () => {
   expect(await resolveMatchLocation(tx, input, null)).toEqual({ courtId: null, aGoalId: null, bGoalId: null, locationIsDemo: false });
   expect(findUnique).not.toHaveBeenCalled();
 });
-it("comprueba pertenencia de predio, formato y arco antes de escribir", async () => {
+it("comprueba pertenencia de predio y arco antes de escribir", async () => {
   await expect(resolveMatchLocation(tx, { ...input, courtId: 4 }, 3)).rejects.toThrow("predio");
-  await expect(resolveMatchLocation(tx, { ...input, format: 7, courtId: 4 }, 2)).rejects.toThrow("formato");
+  expect((await resolveMatchLocation(tx, { ...input, format: 6, courtId: 4, aGoalId: 11 }, 2)).courtId).toBe(4);
   await expect(resolveMatchLocation(tx, { ...input, courtId: 4, aGoalId: 30 }, 2)).rejects.toThrow("arco");
   await expect(resolveMatchLocation(tx, { ...input, aGoalId: 11 }, 2)).rejects.toThrow("cancha");
 });

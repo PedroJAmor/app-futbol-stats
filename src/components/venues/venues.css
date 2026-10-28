@@ -17,3 +17,7 @@
 .venue-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .venue-heading h2, .venue-card h3, .venue-meta span, .venue-goals > div { min-width: 0; overflow-wrap: anywhere; }
 .venue-hero-photo { aspect-ratio: 16 / 9; }
+@media (max-width: 480px) {
+  .venue-goals { grid-template-columns: minmax(0, 1fr); }
+  .venue-goals > div { overflow-wrap: break-word; }
+}

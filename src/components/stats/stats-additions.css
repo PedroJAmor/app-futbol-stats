@@ -25,3 +25,10 @@
 .goal-results small { color: #62636a; }
 .demo-assignment { color: #73510a; background: #fff2c7; padding: 10px; border-radius: 10px; font-size: 12px; }
 @media (min-width: 768px) { .monthly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+@media (max-width: 600px) {
+  .goal-results-row { grid-template-columns: minmax(0, 1fr); gap: 14px; text-align: left; }
+  .goal-results-row > div { display: grid; grid-template-columns: minmax(0, 1fr) 48px 64px; align-items: center; gap: 8px; }
+  .goal-results strong, .goal-results small { text-align: right; }
+  .goal-results span { overflow-wrap: break-word; }
+}

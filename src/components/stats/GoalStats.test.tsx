@@ -23,7 +23,8 @@ it("no añade una petición al abrir la página; carga al desplegar el apartado"
   expect(fetchMock.mock.calls[0][0]).toContain("venueId=1&courtId=2");
   expect(host.textContent).toContain("50%"); expect(host.textContent).toContain("10%"); expect(host.textContent).toContain("40%");
   expect(host.textContent).toContain("10 partidos analizados");
-  expect(host.textContent).toContain("3 asignaciones de prueba");
+  expect(host.textContent).not.toContain("asignaciones de prueba");
+  expect(host.querySelector("input")).toBeNull();
   expect(host.textContent).toContain("1 sin cancha especificada");
 });
 it("distingue fallo del estado sin datos y permite reintentar", async () => {
@@ -33,5 +34,5 @@ it("distingue fallo del estado sin datos y permite reintentar", async () => {
   fetchMock.mockResolvedValue({ ok: true, json: async () => ({ venues: [] }) });
   const retry = [...host.querySelectorAll('button')].find(button => button.textContent === "Reintentar estadísticas por arco")!;
   await act(async () => retry.click());
-  expect(host.textContent).toContain("No hay predios para estos filtros");
+  expect(host.textContent).toContain("No hay predios registrados");
 });

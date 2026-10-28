@@ -129,7 +129,6 @@ async function main() {
         { side: "B", color: "Oscuro", result: "LOSS", playerIds: [players[1]] }],
     };
     await expectStatus("match rejects court from another venue", "/api/partidos", 400, "POST", { ...payload, courtId: foreignCourt.id }, admin);
-    await expectStatus("match rejects incompatible court format", "/api/partidos", 400, "POST", { ...payload, format: 7 }, admin);
     await expectStatus("match rejects goal from another court", "/api/partidos", 400, "POST", { ...payload, aGoalId: foreignCourt.goals[0].id }, admin);
     await expectStatus("match rejects goal without court", "/api/partidos", 400, "POST", { ...payload, courtId: null }, admin);
     await expectStatus("match rejects unknown category", "/api/partidos", 400, "POST", { ...payload, category: "OTHER" }, admin);
@@ -138,7 +137,9 @@ async function main() {
     const path = `/api/partidos/${match.id}`;
     check("opposite goal automatically assigned to team B", match.teams.find((team: any) => team.side === "A").defendedGoalId === court.goals[0].id &&
       match.teams.find((team: any) => team.side === "B").defendedGoalId === court.goals[1].id && match.category === "MIDWEEK" && !match.locationIsDemo);
-    await expectStatus("court format cannot invalidate existing match", `/api/canchas/${venue.id}/pistas/${court.id}`, 409, "PUT", { name: court.name, format: 7 }, admin);
+    await expectStatus("court format independent of match format", `/api/canchas/${venue.id}/pistas/${court.id}`, 200, "PUT", { name: court.name, format: 7 }, admin);
+    await expectStatus("F6 can be played on F7 court", path, 200, "PUT", { ...payload, format: 6 }, admin);
+    await expectStatus("fixture format restored", path, 200, "PUT", payload, admin);
 
     const query = `venueId=${venue.id}&courtId=${court.id}&format=5&dateFrom=${closedMonth}-01&dateTo=${closedMonth}-28&playerIds=${players.join(",")}`;
     const matching = (await expectStatus("combined filters include selected fixture", `/api/partidos?view=cards&${query}&categories=LEAGUE,MIDWEEK`, 200)).data;

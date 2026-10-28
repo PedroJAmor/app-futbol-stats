@@ -16,7 +16,6 @@ export async function resolveMatchLocation(tx: Prisma.TransactionClient, input: 
   }
   const court = await tx.court.findUnique({ where: { id: courtId }, include: { goals: { orderBy: { position: "asc" } } } });
   if (!court || court.venueId !== venueId) throw new MatchRequestError("La cancha no pertenece al predio seleccionado.");
-  if (court.format !== null && court.format !== input.format) throw new MatchRequestError("El formato no coincide con la cancha seleccionada.");
   let bGoalId: number | null = null;
   if (aGoalId) {
     if (court.goals.length !== 2 || !court.goals.some(goal => goal.id === aGoalId)) throw new MatchRequestError("El arco no pertenece a esta cancha o falta configurar el arco contrario.");
