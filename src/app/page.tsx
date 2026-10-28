@@ -1,3 +1,5 @@
+import { matchCardSelect, toMatchCard } from "@/features/matches/cards";
+import { statParticipationSelect } from "@/features/stats/select";
 import Link from "next/link";
 import MatchCard from "@/components/MatchCard";
 import PlayerForm from "@/components/PlayerForm";
@@ -11,13 +13,14 @@ import { formatArgentinaDate } from "@/lib/dates";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
-  const hasLinkedPlayer = Boolean(user?.playerId);
-  const [latestMatches, rawStats, myParticipations] = await Promise.all([
-    prisma.match.findMany({ where: { isHidden: false }, take: 3, orderBy: { playedAt: "desc" }, include: { teams: { orderBy: { side: "asc" } }, mvp: true, venue: true } }),
-    prisma.matchParticipation.findMany({ where: { match: { isHidden: false } }, include: { player: true, team: { include: { match: true } } } }),
-    user?.playerId ? prisma.matchParticipation.findMany({ where: { playerId: user.playerId, match: { isHidden: false } }, take: 5, orderBy: { match: { playedAt: "desc" } }, include: { team: true, match: true } }) : [],
+  const currentUser = getCurrentUser();
+  const [user, latestMatches, rawStats, myParticipations] = await Promise.all([
+    currentUser,
+    prisma.match.findMany({ where: { isHidden: false }, take: 3, orderBy: { playedAt: "desc" }, select: matchCardSelect }),
+    prisma.matchParticipation.findMany({ where: { match: { isHidden: false } }, select: statParticipationSelect }),
+    currentUser.then(user => user?.playerId ? prisma.matchParticipation.findMany({ where: { playerId: user.playerId, match: { isHidden: false } }, take: 5, orderBy: { match: { playedAt: "desc" } }, select: { id: true, matchId: true, team: { select: { result: true, color: true } }, match: { select: { playedAt: true } } } }) : []),
   ]);
+  const hasLinkedPlayer = Boolean(user?.playerId);
   const allStats = calculateStats(rawStats);
   const ranking = statsForHome(allStats);
   const givenNameCounts = allStats.reduce((counts, player) => counts.set(playerGivenNameKey(player), (counts.get(playerGivenNameKey(player)) ?? 0) + 1), new Map<string, number>());
@@ -35,7 +38,7 @@ export default async function HomePage() {
         <div><h2>Iniciá sesión</h2><p>Ingresá para acceder a tu perfil y ver tus partidos.</p></div>
         <Link className="button primary" href="/perfil">Iniciar sesión</Link>
       </section>}
-      <section className="stack home-latest"><div className="section-heading"><h2>Últimos partidos</h2><Link href="/partidos">Ver todos</Link></div><div className="home-match-grid">{latestMatches.map((match) => <MatchCard key={match.id} match={{ ...match, venue: match.venue?.name ?? null }} />)}</div>{latestMatches.length === 0 && <p className="muted empty-state">Todavía no hay partidos registrados.</p>}</section>
+      <section className="stack home-latest"><div className="section-heading"><h2>Últimos partidos</h2><Link href="/partidos">Ver todos</Link></div><div className="home-match-grid">{latestMatches.map((match) => <MatchCard key={match.id} match={toMatchCard(match)} />)}</div>{latestMatches.length === 0 && <p className="muted empty-state">Todavía no hay partidos registrados.</p>}</section>
       <section className="home-ranking"><h2>Porcentaje de victorias</h2><div className="table-scroll ranking-table"><table><thead><tr><th>Pos.</th><th>Jugador</th><th>PJ</th><th>V</th><th>%V</th></tr></thead><tbody>{ranking.map((stat, index) => <PlayerTableRow key={stat.playerId} playerId={stat.playerId} name={lineupPlayerName(stat, repeatedGivenNames)} title={formatPlayerName(stat)} leading={index + 1}><td>{stat.pj}</td><td>{stat.v}</td><td>{stat.pctV}%</td></PlayerTableRow>)}</tbody></table></div>{ranking.length === 0 && <p className="muted empty-state">El ranking aparecerá cuando haya partidos registrados.</p>}</section>
     </div>
   );

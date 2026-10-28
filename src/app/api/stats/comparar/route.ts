@@ -1,3 +1,4 @@
+import { statParticipationSelect } from "@/features/stats/select";
 import { checkReadRateLimit } from "@/features/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -18,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
   const rows = await prisma.matchParticipation.findMany({
     where: { playerId: { in: playerIds }, match: matchWhere },
-    include: { player: true, team: { include: { match: true } } },
+    select: statParticipationSelect,
   });
   return NextResponse.json(calculateGroupStats(playerIds, rows));
   } catch {

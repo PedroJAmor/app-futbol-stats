@@ -1,3 +1,4 @@
+import { statParticipationSelect } from "@/features/stats/select";
 import { checkReadRateLimit } from "@/features/security/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -20,7 +21,7 @@ export async function GET(request: NextRequest) {
   const [rawStats, totalMatches] = await Promise.all([
     prisma.matchParticipation.findMany({
       where: { match: matchWhere },
-      include: { player: true, team: { include: { match: true } } },
+      select: statParticipationSelect,
     }),
     prisma.match.count({ where: matchWhere }),
   ]);

@@ -45,6 +45,26 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(); });
 
 describe("carga de estadísticas", () => {
+  it("comparte una sola carga inicial entre la tabla y el selector", async () => {
+    await render();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(host.querySelector(".stats-ranking")?.textContent).toContain("Mimi");
+    await selectPlayers();
+    expect(host.querySelectorAll(".selected-list button")).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("conserva el catálogo completo al filtrar la tabla sin volver a pedirlo", async () => {
+    await render();
+    fetchMock.mockImplementation(() => Promise.resolve(response({ stats: [stats[1]] })));
+    await act(async () => changeFormat("7"));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(host.querySelector(".stats-ranking")?.textContent).not.toContain("Mimi");
+    await selectPlayers();
+    expect(host.querySelectorAll(".selected-list button")).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("permite elegir varios jugadores sin cerrar y devuelve el foco sin desplazar al buscador", async () => {
     await render();
     const trigger = button("⌕Buscar y agregar jugador");

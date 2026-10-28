@@ -60,3 +60,9 @@ Bloque local de protección de origen/cuerpos, cuotas distribuidas en la tabla e
 ## Actualización aprobada y prueba de permisos — 27/10/2026
 
 Next 16, React 19, Zod 4 y Vitest 5 actualizados con sus adaptaciones. 254 pruebas, TypeScript y compilación aprobados; auditoría npm sin avisos conocidos. Otras 49 comprobaciones integradas verificaron permisos reales, sesiones falsificadas, revocación inmediata de roles y concurrencia del rate limit sobre PostgreSQL de pruebas. Todos los registros de prueba se limpiaron. Sin migraciones ni acceso a producción. Publicación en Preview pendiente; detalles en [security-review.md](security-review.md).
+
+La actualización de seguridad se publicó en Preview con commit b086f17, después de la autorización para actualizar el enlace compartido. Vercel Ready y 24 comprobaciones remotas aprobadas; publicación temporal limpiada en staging. Sesión existente y navegación comprobadas en Chrome. Nuevo login Google desde cero pendiente.
+
+## Optimización de consultas — 27/10/2026
+
+Primera carga de estadísticas compartida con el selector, proyecciones de campos reducidas e historial reutilizado en la ficha. Inicio paraleliza consultas públicas con autenticación, conservando permisos. 256 pruebas, tipos y compilación aprobados; mediciones y límites en [performance-review.md](performance-review.md). El usuario confirmó correcto funcionamiento de Google después de la actualización de seguridad.

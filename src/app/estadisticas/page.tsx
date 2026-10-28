@@ -22,6 +22,7 @@ const columns: { key: SortColumn; label: string }[] = [
 export default function StatsPage() {
   const [stats, setStats] = useState<PlayerStats[]>([]);
   const [allPlayers, setAllPlayers] = useState<PlayerStats[]>([]);
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
   const [format, setFormat] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -70,27 +71,43 @@ export default function StatsPage() {
     return params;
   }, [dateFrom, dateTo, format, minimumMatches]);
 
+  const unfilteredPlayersRetry = filterParams.size === 0 ? playersRetry : 0;
+
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setStatsError("");
+    if (!filterParams.size) setPlayersError("");
     async function load() {
       try {
         const response = await fetch(`/api/stats?${filterParams}`, { signal: controller.signal });
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.stats)) throw new Error(data.error ?? "No se pudieron cargar las estadísticas.");
-        if (!controller.signal.aborted) setStats(data.stats);
+        if (!controller.signal.aborted) {
+          setStats(data.stats);
+          // The unfiltered ranking is also the comparison catalogue.
+          if (!filterParams.size) {
+            setAllPlayers(data.stats);
+            setCatalogLoaded(true);
+          }
+        }
       } catch (cause) {
-        if (!controller.signal.aborted) setStatsError(cause instanceof Error ? cause.message : "No se pudieron cargar las estadísticas.");
+        if (!controller.signal.aborted) {
+          const message = cause instanceof Error ? cause.message : "No se pudieron cargar las estadísticas.";
+          setStatsError(message);
+          if (!filterParams.size) setPlayersError(message);
+        }
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
     }
     void load();
     return () => controller.abort();
-  }, [filterParams, statsRetry]);
+  }, [filterParams, statsRetry, unfilteredPlayersRetry]);
 
   useEffect(() => {
+    // Only needed if filters changed before the first unfiltered load finished.
+    if (!filterParams.size || catalogLoaded) return;
     const controller = new AbortController();
     setPlayersError("");
     async function load() {
@@ -98,14 +115,14 @@ export default function StatsPage() {
         const response = await fetch("/api/stats", { signal: controller.signal });
         const data = await response.json();
         if (!response.ok || !Array.isArray(data.stats)) throw new Error(data.error ?? "No se pudieron cargar los jugadores para comparar.");
-        if (!controller.signal.aborted) setAllPlayers(data.stats);
+        if (!controller.signal.aborted) { setAllPlayers(data.stats); setCatalogLoaded(true); }
       } catch (cause) {
         if (!controller.signal.aborted) setPlayersError(cause instanceof Error ? cause.message : "No se pudieron cargar los jugadores para comparar.");
       }
     }
     void load();
     return () => controller.abort();
-  }, [playersRetry]);
+  }, [playersRetry, filterParams.size, catalogLoaded]);
 
   useEffect(() => {
     comparisonAbort.current?.abort();

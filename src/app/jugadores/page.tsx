@@ -1,3 +1,4 @@
+import { statParticipationSelect } from "@/features/stats/select";
 import { prisma } from "@/lib/prisma";
 import { calculateStats } from "@/lib/stats";
 import PlayersDirectory from "@/components/players/PlayersDirectory";
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default async function PlayersPage() {
   const [players, rows] = await Promise.all([
     prisma.player.findMany({ where: { isHidden: false }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }] }),
-    prisma.matchParticipation.findMany({ where: { match: { isHidden: false } }, include: { player: true, team: { include: { match: true } } } }),
+    prisma.matchParticipation.findMany({ where: { match: { isHidden: false } }, select: statParticipationSelect }),
   ]);
   const stats = new Map(calculateStats(rows).map((stat) => [stat.playerId, stat]));
   const directoryPlayers = players.map((player) => ({

@@ -23,10 +23,12 @@ export default async function PlayerPage({ params }: { params: Promise<{ id: str
   const { id: rawId } = await params;
   const id = Number(rawId);
   if (!/^\d+$/.test(rawId) || !Number.isInteger(id) || id <= 0 || id > 2_147_483_647) notFound();
-  const player = await prisma.player.findFirst({ where: { id, isHidden: false }, include: { participations: { where: { match: { isHidden: false } }, include: { team: true, match: true }, orderBy: { match: { playedAt: "desc" } } } } });
+  const player = await prisma.player.findFirst({ where: { id, isHidden: false }, include: { participations: { where: { match: { isHidden: false } }, select: { id: true, matchId: true, team: { select: { id: true, color: true, result: true } }, match: { select: { id: true, format: true, playedAt: true, isHidden: true, mvpId: true } } }, orderBy: { match: { playedAt: "desc" } } } } });
   if (!player) notFound();
-  const rows = await prisma.matchParticipation.findMany({ where: { playerId: id, match: { isHidden: false } }, include: { player: true, team: { include: { match: true } } } });
-  const stat = calculateStats(rows)[0];
+  const stat = calculateStats(player.participations.map(item => ({
+    player,
+    team: { ...item.team, match: item.match },
+  })))[0];
   const editable = { id: player.id, firstName: player.firstName, lastName: player.lastName, nickname: player.nickname, birthDate: player.birthDate?.toISOString() ?? null, photoUrl: player.photoUrl, isActive: player.isActive };
   const age = playerAge(player.birthDate);
   const recent = player.participations.slice(0, 5);

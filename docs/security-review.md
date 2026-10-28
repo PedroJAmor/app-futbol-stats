@@ -1,6 +1,6 @@
 # Seguridad y límites de uso — 27/10/2026
 
-Bloque autorizado después de compartir la demo de pruebas. Implementación local; no se publicó esta entrega ni se modificó la configuración de Vercel. La verificación integrada posterior utilizó exclusivamente la base de pruebas confirmada, con registros temporales identificados y limpieza acotada. Sin acceso a producción, migraciones ni modificaciones del esquema.
+Bloque autorizado después de compartir la demo de pruebas. Publicado en Preview rebuild-v2, commit b086f17, con autorización explícita para actualizar la demo compartida. No se modificó la configuración de Vercel. La verificación integrada posterior utilizó exclusivamente la base de pruebas confirmada, con registros temporales identificados y limpieza acotada. Sin acceso a producción, migraciones ni modificaciones del esquema.
 
 ## Controles implementados
 
@@ -24,7 +24,7 @@ Se reutiliza la tabla `AnonymousRateLimit` de PostgreSQL. No requiere Redis, ser
 
 Valores ajustables en `.env.example`. El secreto existente `ANONYMOUS_RATE_LIMIT_SECRET` ahora protege también las cuotas de lecturas/fotos; debe estar presente en runtime. Variables nuevas opcionales, con defaults. Ninguna configuración se cambió en Vercel.
 
-En Vercel se usa exclusivamente `x-vercel-forwarded-for`, con validación de IP, normalización de IPv4 mapeado y agrupación IPv6 /64. No se acepta una lista de IP ni fallback a headers arbitrarios. Fuera de Vercel se usa un bucket local compartido: habilitar otro proxy requiere diseñar explícitamente su confianza. En Preview hay que verificar la recepción real del header antes de publicar esta entrega para todos.
+En Vercel se usa exclusivamente `x-vercel-forwarded-for`, con validación de IP, normalización de IPv4 mapeado y agrupación IPv6 /64. No se acepta una lista de IP ni fallback a headers arbitrarios. Fuera de Vercel se usa un bucket local compartido: habilitar otro proxy requiere diseñar explícitamente su confianza. La verificación remota confirmó lecturas y una escritura legítima detrás del proxy de Vercel, sin fallos de validación del header.
 
 El HMAC incluye propósito y ventana temporal. No se almacenan IP, User-Agent o ID de cuenta en texto plano, ni se relacionan los contadores con publicaciones. No equivale a anonimato frente a logs del proveedor. Amigos con la misma red y User-Agent pueden compartir la cuota de 5; se conserva esta característica del límite anterior y el agregado de 50 evita evadir el techo cambiando navegador.
 
@@ -64,4 +64,10 @@ Fuentes consultadas: [headers de Vercel](https://vercel.com/docs/headers/request
 
 Navegador local sobre la compilación actualizada: sesión existente, Inicio, navegación a Estadísticas, selección consecutiva de dos jugadores, comparación y filtro F5 (15 de 55 partidos) comprobados sin errores de consola. No se modificaron datos de negocio en este recorrido.
 
-Pendiente de publicación: comprobar en Preview los headers del proxy, Google y los recorridos de navegador. Esta actualización todavía no está en la demo compartida.
+## Publicación verificada
+
+Vercel confirmó Ready para `b086f17` en Preview (despliegue `42KGzrfcxPQnZvzqEMzbU5xXyLnG`). El enlace compartido existente permanece válido. No se cambió main ni producción.
+
+24 comprobaciones remotas aprobadas: cinco páginas y cuatro APIs públicas, cabeceras de seguridad, rechazo de acceso administrativo sin sesión, redirección de /admin, rechazo de origen externo y publicación legítima. La publicación se identificó por marcador único, se confirmó en la base de staging autorizada y se eliminó exclusivamente ese registro. Evidencia ignorada: `.local-artifacts/security-upgrade/preview-verification.json`.
+
+Chrome confirmó sesión existente, Inicio, navegación a Partidos y detalle sin errores de consola. Después de la publicación, el usuario confirmó que el inicio de sesión funciona correctamente. La revisión automática usó Chrome y sesiones existentes; no sustituye las comprobaciones manuales del usuario. Los avisos de build fueron configuración cache-dir de npm y aprobación futura de scripts de instalación, sin error de compilación.
