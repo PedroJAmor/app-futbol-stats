@@ -34,3 +34,21 @@ Comparar con mantener `iad1`: evita el cambio de ubicación, pero conserva las c
 - Si empeora el comportamiento o falla una función, revertir el commit de configuración en rebuild-v2 y verificar nuevamente la versión anterior.
 
 Fuentes: [regiones y configuración de funciones](https://vercel.com/docs/functions/configuring-functions/region), [códigos de regiones](https://vercel.com/docs/regions), [cabecera x-vercel-id](https://vercel.com/docs/headers/request-headers#x-vercel-id).
+
+## Resultado del cambio aprobado
+
+Vercel confirmó Ready para `e58faed`, despliegue `dAPhEM4iWvJU6ZmgVvA1hs1gM5DQ`. Las 15 respuestas medidas cambiaron de `gru1::iad1` a `gru1::gru1`, confirmando ejecución efectiva en São Paulo. Se repitió exactamente el conjunto de rutas y cantidad de muestras anterior.
+
+| Ruta | Primera muestra después (ms) | Muestras posteriores después (ms) |
+| --- | --- | --- |
+| Proveedores de autenticación | 575 | 102, 78 |
+| Inicio | 1535 | 333, 127 |
+| Ficha /jugadores/1 | 471 | 115, 100 |
+| API de estadísticas | 613 | 145, 211 |
+| Comparación 1,4 | 304 | 134, 96 |
+
+Las muestras posteriores mejoraron en todas las rutas. La primera muestra de Inicio fue 1535 ms frente a 1442 ms antes: el traslado no elimina el coste inicial. No se trata de arranques en frío controlados ni de percentiles representativos; los resultados justifican conservar São Paulo y observar el uso real.
+
+Quince respuestas 200, más siete comprobaciones de páginas, permisos y origen. La escritura legítima se comprobó con el honeypot para no persistir datos; el rechazo de origen externo devolvió 403. Sin sesión, administración devolvió 401 y /admin redirigió. Chrome mantuvo la sesión existente y cargó Inicio y Estadísticas (79 jugadores) sin errores de consola.
+
+Evidencia local ignorada: `.local-artifacts/latency/after.json` y `verification.json`. No se cambiaron datos de negocio, permisos, variables, main ni producción. No se repitieron las 256 pruebas de aplicación porque este bloque solo añadió configuración de región y documentación; la compilación y la región efectiva se verificaron en Vercel.
