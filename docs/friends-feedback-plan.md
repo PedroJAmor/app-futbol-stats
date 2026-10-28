@@ -1,6 +1,6 @@
 # Plan de mejoras del grupo — 28/10/2026
 
-Estado: aprobado explícitamente por el usuario para comenzar por bloques, incluida la migración aditiva, la preparación acotada de datos de pruebas y la publicación del Preview. Implementación y verificación en curso. La revisión inicial fue de solo lectura; los cambios posteriores se registran al final de este documento.
+Estado: aprobado explícitamente por el usuario para comenzar por bloques, incluida la migración aditiva, la preparación acotada de datos de pruebas y la publicación del Preview. Implementación, verificación y publicación del Preview completadas. La revisión inicial fue de solo lectura; los cambios posteriores se registran al final de este documento.
 
 ## Decisiones de producto
 
@@ -119,3 +119,9 @@ Sin consultas o cambios en producción, reseteos, ejecuciones de migraciones his
 - `prisma/migration-scripts/seed-feedback-staging.ts`: vista previa por defecto; `--apply` prepara los datos autorizados. `--rollback <manifiesto> --apply` revierte solo los cambios todavía intactos de ese manifiesto.
 - `scripts/verify-feedback-staging.ts`: requiere la aplicación compilada y el entorno de pruebas cargado; inicia su propio servidor temporal y limpia sus propios registros.
 - Los tres scripts validan la rama, etiqueta y host literal de pruebas antes de conectarse. No se incluyen scripts de despliegue ni acceso a producción.
+
+### Publicación verificada
+
+El código de la entrega quedó en `84da2f4` de `rebuild-v2`, publicado en el Preview `Bbv21YcHhMzTBUeE1jpt5bAjJRWk`, estado Ready. El alias compartido existente apunta a esa versión; no se cambiaron permisos, variables ni enlaces de acceso. Las 14 comprobaciones HTTP posteriores al despliegue pasaron y confirmaron ejecución en São Paulo (`gru1`): catálogo, categorías y filtros, arcos, equipos de mayo sin repetidos, bloqueo del mes actual, denegación del acceso administrativo sin sesión y páginas públicas. El navegador no registró errores de consola en el recorrido publicado.
+
+Se comprobó ausencia de desbordamiento horizontal en el listado a 340, 360, 390, 430, 768, 1280 y 1440 px, y en las estadísticas de cancha a 340, 768 y 1440 px. Las capturas de Inicio y arcos de la versión publicada, y los resultados completos de pruebas, quedaron en `.local-artifacts/friends-feedback/`. Se restableció el tamaño habitual del navegador al finalizar. Para revisar equipos mensuales con los datos actuales, elegir mayo de 2026: septiembre no contiene partidos y octubre se habilitará el 1 de noviembre a las 00:00 de Argentina.
