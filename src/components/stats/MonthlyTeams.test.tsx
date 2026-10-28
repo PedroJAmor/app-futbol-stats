@@ -21,6 +21,9 @@ it("muestra el mes calendario anterior vacío y conserva el archivo de meses del
   expect([...select.options].map(option => option.value)).toEqual(["2026-09", "2026-05"]);
   expect(host.textContent).toContain("No hay partidos registrados en septiembre de 2026");
   expect(fetchMock).toHaveBeenCalledTimes(1);
+  expect(host.querySelectorAll("select")).toHaveLength(1);
+  expect(host.querySelector("input[type=checkbox]")).toBeNull();
+  expect(fetchMock.mock.calls[0][0]).not.toContain("categories=");
 });
 it("cancela consultas obsoletas al elegir otro mes sin permitir que reemplacen la selección", async () => {
   await act(async () => root.render(<MonthlyTeams />));

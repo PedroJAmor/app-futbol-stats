@@ -3,8 +3,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { lineupPlayerName, playerGivenNameKey } from "@/lib/displayName";
 import type { PlayerStats } from "@/lib/stats";
-import type { Category } from "@/features/matches/categories";
-import CategoryPicker from "@/components/matches/CategoryPicker";
 import "./stats-additions.css";
 
 type MonthlyResult = { month: string; months: string[]; candidateCount: number; best: (PlayerStats & { score: number })[]; worst: (PlayerStats & { score: number })[] };
@@ -12,7 +10,6 @@ const monthLabel = (month: string) => new Intl.DateTimeFormat("es-AR", { timeZon
 
 export default function MonthlyTeams() {
   const [month, setMonth] = useState("");
-  const [categories, setCategories] = useState<Category[]>([]);
   const [data, setData] = useState<MonthlyResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -22,7 +19,6 @@ export default function MonthlyTeams() {
     setLoading(true); setError("");
     const params = new URLSearchParams();
     if (month) params.set("month", month);
-    if (categories.length) params.set("categories", categories.join(","));
     async function load() {
       try {
         const response = await fetch(`/api/stats/equipos-mes?${params}`, { signal: controller.signal });
@@ -34,7 +30,7 @@ export default function MonthlyTeams() {
       } finally { if (!controller.signal.aborted) setLoading(false); }
     }
     void load(); return () => controller.abort();
-  }, [month, categories, retry]);
+  }, [month, retry]);
   const repeatedGivenNames = useMemo(() => {
     const counts = new Map<string, number>();
     for (const player of [...(data?.best ?? []), ...(data?.worst ?? [])]) {
@@ -49,15 +45,14 @@ export default function MonthlyTeams() {
         {!data && <option value="">Cargando meses…</option>}
         {data?.months.map(item => <option key={item} value={item}>{monthLabel(item)}</option>)}
       </select></label>
-      <CategoryPicker value={categories} onChange={setCategories} />
     </div>
     {loading ? <p role="status" className="muted">Cargando equipos del mes…</p> : error ? <div role="alert"><p className="error">{error}</p><button className="button" onClick={() => setRetry(value => value + 1)}>Reintentar equipos del mes</button></div> : data && <>
-      {data.candidateCount === 0 ? <p className="muted empty-state">No hay partidos registrados en {monthLabel(data.month)} para estos filtros. Podés elegir otro mes cerrado.</p> : <>
+      {data.candidateCount === 0 ? <p className="muted empty-state">No hay partidos registrados en {monthLabel(data.month)}. Podés elegir otro mes cerrado.</p> : <>
         <p className="muted monthly-caption">{monthLabel(data.month)} · {data.candidateCount} jugadores</p>
         <div className="monthly-grid">{([['Mejor equipo', 'V − D', data.best], ['Peor equipo', 'D − V', data.worst]] as const).map(([title, formula, players]) => <section className="card stack monthly-team" key={title}><div className="section-heading"><h3>{title}</h3><span>{formula}</span></div><ol>
           {players.map(player => <li key={player.playerId}><Link href={`/jugadores/${player.playerId}`}><span>{lineupPlayerName(player, repeatedGivenNames)}</span><small>{player.pj} PJ</small><strong>{player.score > 0 ? "+" : ""}{player.score}</strong></Link></li>)}
         </ol>{players.length === 0 && <p className="muted">Sin candidatos disponibles.</p>}</section>)}</div>
-        {data.candidateCount < 14 && <p className="muted">Con estos filtros hay menos de 14 jugadores; las listas quedan incompletas para no repetir nombres.</p>}
+        {data.candidateCount < 14 && <p className="muted">Este mes hay menos de 14 jugadores; las listas quedan incompletas para no repetir nombres.</p>}
       </>}
     </>}
   </section>;

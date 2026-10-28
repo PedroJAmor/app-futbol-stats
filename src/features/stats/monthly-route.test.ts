@@ -16,9 +16,10 @@ it("habilita octubre al cambiar de mes en Argentina, aun cuando está vacío", a
   const response = await GET(new NextRequest("http://localhost/api/stats/equipos-mes"));
   expect(response.status).toBe(200); expect(await response.json()).toMatchObject({ month: "2026-10", months: ["2026-10"], best: [], worst: [], candidateCount: 0 });
 });
-it("valida categorías y conserva el límite temporal junto al filtro", async () => {
-  expect((await GET(new NextRequest("http://localhost/api/stats/equipos-mes?categories=INVALID"))).status).toBe(400);
+it("siempre incluye todos los tipos aunque un cliente anterior envíe categorías", async () => {
   const response = await GET(new NextRequest("http://localhost/api/stats/equipos-mes?month=2026-09&categories=LEAGUE,SPECIAL"));
   expect(response.status).toBe(200);
-  expect(mocks.rows.mock.calls[0][0].where.match).toMatchObject({ isHidden: false, category: { in: ["LEAGUE", "SPECIAL"] }, playedAt: { gte: new Date("2026-09-01T03:00:00Z"), lt: new Date("2026-10-01T03:00:00Z") } });
+  expect(mocks.rows.mock.calls[0][0].where.match).not.toHaveProperty("category");
+  expect(mocks.matches.mock.calls[0][0].where).not.toHaveProperty("category");
+  expect(mocks.rows.mock.calls[0][0].where.match).toMatchObject({ isHidden: false, playedAt: { gte: new Date("2026-09-01T03:00:00Z"), lt: new Date("2026-10-01T03:00:00Z") } });
 });

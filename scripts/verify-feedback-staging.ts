@@ -195,7 +195,7 @@ async function main() {
     check("monthly teams contain at most seven per side", monthly.best.length <= 7 && monthly.worst.length <= 7 && monthly.candidateCount >= 2);
     await expectStatus("current month remains unavailable", `/api/stats/equipos-mes?month=${currentMonth}`, 400);
     await expectStatus("malformed month rejected", "/api/stats/equipos-mes?month=2026-13", 400);
-    await expectStatus("unknown monthly category rejected", `/api/stats/equipos-mes?month=${closedMonth}&categories=OTHER`, 400);
+    await expectStatus("monthly category parameter cannot filter totals", `/api/stats/equipos-mes?month=${closedMonth}&categories=OTHER`, 200);
 
     await expectStatus("admin hides fixture match", path, 200, "DELETE", undefined, admin);
     const hiddenGoalStats = (await expectStatus("goal stats exclude hidden fixture", `/api/stats/arcos?${goalQuery}`, 200)).data;
