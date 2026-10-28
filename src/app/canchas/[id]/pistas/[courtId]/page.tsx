@@ -1,3 +1,4 @@
+import VenuePhoto from "@/components/venues/VenuePhoto";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -14,5 +15,5 @@ export default async function CourtPage({ params }: { params: Promise<{ id: stri
   const court = await prisma.court.findFirst({ where: { id: courtId, venueId: id }, select: { ...courtSelect, venue: { select: { id: true, name: true } } } });
   if (!court) notFound();
   const matches = await prisma.match.findMany({ where: { courtId, venueId: id, isHidden: false }, orderBy: { playedAt: "desc" }, select: matchCardSelect });
-  return <div className="page venues-page"><div className="venue-heading"><h2>{court.name}</h2><VenueAdminActions venue={court.venue} court={court} /></div>{court.photoUrl && <img className="venue-hero-photo" src={court.photoUrl} alt={court.name} />}<GoalStats venueId={id} courtId={courtId} /><section className="stack"><div className="section-heading"><h2>Partidos jugados</h2><Link href={`/partidos?venueId=${id}&courtId=${courtId}`}>Ver en Partidos</Link></div><p className="muted">{matches.length} partidos</p><div className="venue-history">{matches.map(match => <MatchCard key={match.id} match={toMatchCard(match)} showResult />)}</div>{!matches.length && <p className="muted">Todavía no hay partidos asignados a esta cancha.</p>}</section></div>;
+  return <div className="page venues-page"><div className="venue-heading"><h2>{court.name}</h2><VenueAdminActions venue={court.venue} court={court} /></div>{court.photoUrl && <VenuePhoto src={court.photoUrl} alt={court.name} />}<GoalStats venueId={id} courtId={courtId} /><section className="stack"><div className="section-heading"><h2>Partidos jugados</h2><Link href={`/partidos?venueId=${id}&courtId=${courtId}`}>Ver en Partidos</Link></div><p className="muted">{matches.length} partidos</p><div className="venue-history">{matches.map(match => <MatchCard key={match.id} match={toMatchCard(match)} showResult />)}</div>{!matches.length && <p className="muted">Todavía no hay partidos asignados a esta cancha.</p>}</section></div>;
 }

@@ -2,12 +2,14 @@
 .venues-page h2 { margin: 0; }
 .venue-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 16px; }
 .venue-card { display: flex; flex-direction: column; gap: 12px; overflow: hidden; text-decoration: none; }
-.venue-card img { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 12px; }
+.venue-card img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #1d1e20; border-radius: 12px; }
 .venue-card p { margin: 0; }
 .venue-placeholder { display: grid; place-content: center; min-height: 100px; border: 1px dashed currentColor; border-radius: 12px; color: #656766; font-size: 14px; }
-.venue-hero-photo { width: 100%; max-height: 420px; object-fit: cover; border-radius: 20px; }
+.venue-photo-link { display: block; overflow: hidden; border-radius: 20px; background: #1d1e20; color: var(--muted); text-align: center; text-decoration: none; }
+.venue-photo-link span { display: block; padding: 8px; font-size: 12px; }
+.venue-hero-photo { display: block; width: 100%; height: auto; max-height: min(65svh, 640px); object-fit: contain; }
 .venue-editor-fields { border: 0; padding: 0; margin: 0; min-width: 0; }
-.venue-editor-preview { width: 100%; max-height: 200px; object-fit: cover; border-radius: 12px; }
+.venue-editor-preview { width: 100%; height: auto; max-height: 200px; object-fit: contain; border-radius: 12px; }
 .venue-history { display: grid; gap: 12px; }
 .venue-history .match-card { width: 100%; }
 .venue-history-note { margin: 0 0 6px; color: var(--muted); font-size: 12px; }
@@ -16,7 +18,6 @@
 .venue-meta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .venue-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
 .venue-heading h2, .venue-card h3, .venue-meta span, .venue-goals > div { min-width: 0; overflow-wrap: anywhere; }
-.venue-hero-photo { aspect-ratio: 16 / 9; }
 @media (max-width: 480px) {
   .venue-goals { grid-template-columns: minmax(0, 1fr); }
   .venue-goals > div { overflow-wrap: break-word; }
