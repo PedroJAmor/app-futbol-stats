@@ -14,6 +14,7 @@ export default function AppHeader() {
   const courtRoute = /^\/canchas\/\d+\/pistas\/\d+$/.test(pathname);
   const title = venueRoute ? (courtRoute ? "Cancha" : pathname === "/canchas" ? "Canchas" : "Predio")
     : pathname.startsWith("/partidos/") ? "Detalle partido"
+    : pathname === "/jugadores/equipos-del-mes" ? "Equipos del mes"
     : pathname.startsWith("/jugadores/") ? "Ficha del jugador"
     : tabIndex > 0 ? tab.label : "Fútbol Amigos";
   const backHref = venueRoute ? (courtRoute ? pathname.split("/pistas/")[0] : pathname === "/canchas" ? "/partidos" : "/canchas") : isDetail ? tab.href : "/";

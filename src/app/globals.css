@@ -488,3 +488,5 @@ h3 { margin-bottom: 6px; }
 .match-hidden-item > .button { justify-self: end; }
 
 .mvp-marker { display: inline-block; margin-left: 4px; font-size: .8em; vertical-align: baseline; }
+
+.monthly-entry { display: inline-flex; align-items: center; justify-content: center; justify-self: start; text-align: center; }

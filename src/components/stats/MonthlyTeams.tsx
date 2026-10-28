@@ -38,8 +38,7 @@ export default function MonthlyTeams() {
     }
     return new Set([...counts].filter(([, count]) => count > 1).map(([key]) => key));
   }, [data]);
-  return <section className="monthly-teams stack" aria-labelledby="monthly-title">
-    <div className="section-heading"><h2 id="monthly-title">Equipos del mes</h2></div>
+  return <section className="monthly-teams stack" aria-label="Equipos del mes">
     <div className="card stack">
       <label className="field">Mes cerrado<select value={month || data?.month || ""} disabled={!data} onChange={event => setMonth(event.target.value)}>
         {!data && <option value="">Cargando meses…</option>}
@@ -49,7 +48,7 @@ export default function MonthlyTeams() {
     {loading ? <p role="status" className="muted">Cargando equipos del mes…</p> : error ? <div role="alert"><p className="error">{error}</p><button className="button" onClick={() => setRetry(value => value + 1)}>Reintentar equipos del mes</button></div> : data && <>
       {data.candidateCount === 0 ? <p className="muted empty-state">No hay partidos registrados en {monthLabel(data.month)}. Podés elegir otro mes cerrado.</p> : <>
         <p className="muted monthly-caption">{monthLabel(data.month)} · {data.candidateCount} jugadores</p>
-        <div className="monthly-grid">{([['Mejor equipo', 'V − D', data.best], ['Peor equipo', 'D − V', data.worst]] as const).map(([title, formula, players]) => <section className="card stack monthly-team" key={title}><div className="section-heading"><h3>{title}</h3><span>{formula}</span></div><ol>
+        <div className="monthly-grid">{([['Mejor equipo', 'V − D', data.best], ['Peor equipo', 'V − D', data.worst]] as const).map(([title, formula, players]) => <section className="card stack monthly-team" key={title}><div className="section-heading"><h3>{title}</h3><span>{formula}</span></div><ol>
           {players.map(player => <li key={player.playerId}><Link href={`/jugadores/${player.playerId}`}><span>{lineupPlayerName(player, repeatedGivenNames)}</span><small>{player.pj} PJ</small><strong>{player.score > 0 ? "+" : ""}{player.score}</strong></Link></li>)}
         </ol>{players.length === 0 && <p className="muted">Sin candidatos disponibles.</p>}</section>)}</div>
         {data.candidateCount < 14 && <p className="muted">Este mes hay menos de 14 jugadores; las listas quedan incompletas para no repetir nombres.</p>}

@@ -1,16 +1,17 @@
 .monthly-teams { margin-bottom: 30px; }
 .monthly-caption { margin: 0; }
 .monthly-caption::first-letter { text-transform: uppercase; }
-.monthly-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
-.monthly-team { min-width: 0; }
-.monthly-team h3 { margin: 0; font-size: 17px; }
+.monthly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
+.monthly-team { min-width: 0; padding: 12px 10px; gap: 10px; }
+.monthly-team .section-heading { display: grid; gap: 3px; }
+.monthly-team h3 { margin: 0; font-size: 14px; line-height: 1.4; }
 .monthly-team .section-heading > span { font-size: 12px; color: #62636a; }
 .monthly-team ol { margin: 0; padding: 0; list-style: none; }
 .monthly-team li + li { border-top: 1px solid #ddd; }
-.monthly-team li a { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 0; text-decoration: none; }
+.monthly-team li a { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; gap: 2px 6px; min-height: 56px; padding: 8px 0; text-decoration: none; font-size: 14px; }
 .monthly-team li a span { overflow-wrap: anywhere; }
-.monthly-team li small { color: #62636a; white-space: nowrap; }
-.monthly-team li strong { min-width: 25px; text-align: right; }
+.monthly-team li small { grid-column: 1; grid-row: 2; font-size: 11px; color: #62636a; white-space: nowrap; }
+.monthly-team li strong { grid-column: 2; grid-row: 1 / span 2; min-width: 24px; text-align: right; white-space: nowrap; }
 .goal-stats { margin-top: 28px; }
 .goal-stats > summary { cursor: pointer; color: var(--lime); font-size: 19px; font-weight: 600; padding: 12px 0; }
 .goal-stats-content { padding-top: 10px; }
@@ -24,7 +25,7 @@
 .goal-results strong { font-size: 22px; }
 .goal-results small { color: #62636a; }
 .demo-assignment { color: #73510a; background: #fff2c7; padding: 10px; border-radius: 10px; font-size: 12px; }
-@media (min-width: 768px) { .monthly-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 768px) { .monthly-grid { gap: 16px; } .monthly-team { padding: 20px; } .monthly-team h3 { font-size: 17px; } }
 
 @media (max-width: 600px) {
   .goal-results-row { grid-template-columns: minmax(0, 1fr); gap: 14px; text-align: left; }

@@ -191,7 +191,7 @@ async function main() {
     const monthly = (await expectStatus("default monthly teams available", "/api/stats/equipos-mes", 200)).data;
     check("monthly default is previous Argentina calendar month", monthly.month === closedMonth && monthly.months.every((item: string) => item < currentMonth));
     check("monthly teams never repeat a player", new Set([...monthly.best, ...monthly.worst].map((item: any) => item.playerId)).size === monthly.best.length + monthly.worst.length);
-    check("monthly scores use victories minus defeats and inverse", monthly.best.every((item: any) => item.score === item.v - item.d) && monthly.worst.every((item: any) => item.score === item.d - item.v));
+    check("monthly scores use victories minus defeats for both teams", monthly.best.every((item: any) => item.score === item.v - item.d) && monthly.worst.every((item: any) => item.score === item.v - item.d));
     check("monthly teams contain at most seven per side", monthly.best.length <= 7 && monthly.worst.length <= 7 && monthly.candidateCount >= 2);
     await expectStatus("current month remains unavailable", `/api/stats/equipos-mes?month=${currentMonth}`, 400);
     await expectStatus("malformed month rejected", "/api/stats/equipos-mes?month=2026-13", 400);

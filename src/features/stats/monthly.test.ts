@@ -33,8 +33,8 @@ describe("selecciones mensuales", () => {
     const result = calculateMonthlyTeams(data);
     expect(result.best[0]).toMatchObject({ playerId: 2, score: 1, pj: 2 });
     expect(result.best[1]).toMatchObject({ playerId: 1, score: 1, pj: 1 });
-    expect(result.worst[0]).toMatchObject({ playerId: 3, score: 1, pj: 1 });
-    expect(result.worst[1]).toMatchObject({ playerId: 4, score: 1, pj: 2 });
+    expect(result.worst[0]).toMatchObject({ playerId: 3, score: -1, pj: 1 });
+    expect(result.worst[1]).toMatchObject({ playerId: 4, score: -1, pj: 2 });
     expect(result.best).toHaveLength(7); expect(result.worst).toHaveLength(7);
     expect(new Set([...result.best, ...result.worst].map(player => player.playerId)).size).toBe(14);
   });

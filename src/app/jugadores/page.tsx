@@ -1,4 +1,4 @@
-import MonthlyTeams from "@/components/stats/MonthlyTeams";
+import Link from "next/link";
 import { statParticipationSelect } from "@/features/stats/select";
 import { prisma } from "@/lib/prisma";
 import { calculateStats } from "@/lib/stats";
@@ -25,5 +25,5 @@ export default async function PlayersPage() {
     pts: stats.get(player.id)?.pts ?? 0,
     pctV: stats.get(player.id)?.pctV ?? 0,
   })).sort((a, b) => b.pj - a.pj || a.firstName.localeCompare(b.firstName, "es"));
-  return <div className="page"><MonthlyTeams /><PlayersDirectory players={directoryPlayers} /></div>;
+  return <div className="page"><Link className="button monthly-entry" href="/jugadores/equipos-del-mes">Ver equipos del mes</Link><PlayersDirectory players={directoryPlayers} /></div>;
 }

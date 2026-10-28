@@ -38,6 +38,6 @@ export function calculateMonthlyTeams(rows: RawStat[]) {
   const best = ordered.slice(0, bestSize).map(player => ({ ...player, score: player.v - player.d }));
   const used = new Set(best.map(player => player.playerId));
   const worst = [...ordered].reverse().filter(player => !used.has(player.playerId)).slice(0, 7)
-    .map(player => ({ ...player, score: player.d - player.v }));
+    .map(player => ({ ...player, score: player.v - player.d }));
   return { best, worst, candidateCount: ordered.length };
 }
