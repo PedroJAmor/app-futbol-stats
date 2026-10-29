@@ -8,8 +8,7 @@ import "./stats-additions.css";
 type MonthlyResult = { month: string; months: string[]; candidateCount: number; best: (PlayerStats & { score: number })[]; worst: (PlayerStats & { score: number })[] };
 const monthLabel = (month: string) => new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", month: "long", year: "numeric" }).format(new Date(`${month}-15T12:00:00-03:00`));
 
-export default function MonthlyTeams() {
-  const [month, setMonth] = useState("");
+export default function MonthlyTeams({ month = "" }: { month?: string }) {
   const [data, setData] = useState<MonthlyResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -39,20 +38,22 @@ export default function MonthlyTeams() {
     return new Set([...counts].filter(([, count]) => count > 1).map(([key]) => key));
   }, [data]);
   return <section className="monthly-teams stack" aria-label="Equipos del mes">
-    <div className="card stack">
-      <label className="field">Mes cerrado<select value={month || data?.month || ""} disabled={!data} onChange={event => setMonth(event.target.value)}>
-        {!data && <option value="">Cargando meses…</option>}
-        {data?.months.map(item => <option key={item} value={item}>{monthLabel(item)}</option>)}
-      </select></label>
-    </div>
     {loading ? <p role="status" className="muted">Cargando equipos del mes…</p> : error ? <div role="alert"><p className="error">{error}</p><button className="button" onClick={() => setRetry(value => value + 1)}>Reintentar equipos del mes</button></div> : data && <>
-      {data.candidateCount === 0 ? <p className="muted empty-state">No hay partidos registrados en {monthLabel(data.month)}. Podés elegir otro mes cerrado.</p> : <>
-        <p className="muted monthly-caption">{monthLabel(data.month)} · {data.candidateCount} jugadores</p>
+      <h2 className="monthly-caption">{monthLabel(data.month)}</h2>
+      {month && <Link className="button monthly-entry" href="/jugadores/equipos-del-mes">Ver último mes</Link>}
+      {data.candidateCount === 0 ? <p className="muted empty-state">No hay partidos registrados en {monthLabel(data.month)}.</p> : <>
+        <p className="muted">{data.candidateCount} jugadores</p>
         <div className="monthly-grid">{([['Mejor equipo', 'V − D', data.best], ['Peor equipo', 'V − D', data.worst]] as const).map(([title, formula, players]) => <section className="card stack monthly-team" key={title}><div className="section-heading"><h3>{title}</h3><span>{formula}</span></div><ol>
           {players.map(player => <li key={player.playerId}><Link href={`/jugadores/${player.playerId}`}><span>{lineupPlayerName(player, repeatedGivenNames)}</span><small>{player.pj} PJ</small><strong>{player.score > 0 ? "+" : ""}{player.score}</strong></Link></li>)}
         </ol>{players.length === 0 && <p className="muted">Sin candidatos disponibles.</p>}</section>)}</div>
         {data.candidateCount < 14 && <p className="muted">Este mes hay menos de 14 jugadores; las listas quedan incompletas para no repetir nombres.</p>}
       </>}
+      {data.months.some(item => item < data.month) && <section className="stack monthly-archive" aria-label="Meses anteriores">
+        <h2>Meses anteriores</h2>
+        {data.months.filter(item => item < data.month).map(item => <Link className="card monthly-month-card" href={`/jugadores/equipos-del-mes?mes=${item}`} key={item}>
+          <span>{monthLabel(item)}</span><span aria-hidden="true">→</span>
+        </Link>)}
+      </section>}
     </>}
   </section>;
 }

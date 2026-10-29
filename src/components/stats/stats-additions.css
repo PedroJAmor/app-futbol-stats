@@ -1,6 +1,10 @@
 .monthly-teams { margin-bottom: 30px; }
 .monthly-caption { margin: 0; }
 .monthly-caption::first-letter { text-transform: uppercase; }
+.monthly-archive { margin-top: 20px; }
+.monthly-archive h2 { margin: 0; }
+.monthly-month-card { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; text-decoration: none; font-weight: 600; }
+.monthly-month-card > span:first-child::first-letter { text-transform: uppercase; }
 .monthly-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; align-items: start; }
 .monthly-team { min-width: 0; padding: 12px 10px; gap: 10px; }
 .monthly-team .section-heading { display: grid; gap: 3px; }

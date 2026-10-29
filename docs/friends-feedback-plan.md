@@ -7,8 +7,8 @@ Estado: aprobado explícitamente por el usuario para comenzar por bloques, inclu
 - Inicio: tres últimos partidos en una única fila fija de tarjetas de igual ancho, sin carrusel. Mantener fecha legible y la información acordada.
 - Categorías independientes del formato y la fecha: Liga, Intersemanal y Especial. Todos por defecto; selección múltiple por checkbox en los filtros, combinada por unión entre categorías e intersección con los demás filtros. Tarjeta: `Predio · Formato · Tipo`.
 - Precio en el detalle: `Precio (por persona): $84.000 ($6.000)`. Dividir por participantes realmente registrados. Si no se puede dividir, no inventar un importe; conservar valores nulos y redondear solo la presentación.
-- Jugadores: mejor y peor equipo, siete jugadores cada uno, arriba del directorio, como listas enlazadas a las fichas. Una selección general por mes; todos los tipos por defecto, con filtro opcional de categoría.
-- Mejor: V−D descendente, luego PJ descendente. Peor: D−V descendente, luego PJ ascendente. Empates aportan cero. Solo quienes participaron ese mes, sin otro mínimo. Ante igualdad total, identificador estable en orden inverso entre ambas listas: el peor es el inverso del orden del mejor y no repiten jugadores si hay al menos 14 candidatos. Si un filtro deja menos candidatos, no duplicar ni inventar jugadores para completar lugares.
+- Jugadores: botón «Ver equipos del mes» hacia una página propia. Mejor y peor equipo, siete jugadores cada uno, en dos columnas y con enlaces a las fichas. Una selección total por mes, sin filtro de categoría. Último mes cerrado arriba y tarjetas de meses anteriores debajo.
+- Mejor: V−D descendente, luego PJ descendente. Peor: V−D ascendente, luego PJ ascendente. Ambas listas muestran V−D, incluidos negativos. Empates aportan cero. Solo quienes participaron ese mes, sin otro mínimo. Ante igualdad total, identificador estable en orden inverso entre ambas listas: el peor es el inverso del orden del mejor y no repiten jugadores si hay al menos 14 candidatos. Si un filtro deja menos candidatos, no duplicar ni inventar jugadores para completar lugares.
 - Solo meses cerrados según Argentina. Al 28 de octubre, octubre no puede consultarse; se habilita el 1 de noviembre a las 00:00 de Argentina. El mes inicial es el calendario anterior. En pruebas no hay septiembre: presentar vacío y permitir consultar meses anteriores con partidos. No alterar fechas para rellenarlo.
 - Historial mensual calculado desde los partidos vigentes; corregir un partido anterior actualiza su mes. Excluir ocultos. Sin snapshots, tareas programadas ni cambios en los puntos 4/2/1 existentes.
 
@@ -21,7 +21,7 @@ Acceso público desde Partidos → Canchas, conservando las cinco secciones prin
 - Creación rápida desde el editor de partido: conservar el alta solo con nombre; completar información después desde el módulo.
 - Partido: predio, cancha física y arcos opcionales. Las nuevas opciones no eliminan los requisitos actuales de fecha, formato, equipos y participantes.
 - Al elegir cancha, ofrecer sus arcos. Registrar el que defendió un equipo y completar el contrario cuando exista el par configurado. Nunca cambian de lado durante un encuentro.
-- Validar en servidor que cancha y arcos correspondan al predio, que el formato sea compatible cuando esté definido y que ambos equipos no defiendan el mismo arco.
+- Validar en servidor que cancha y arcos correspondan al predio, que ambos equipos no defiendan el mismo arco. El formato del partido es independiente del formato físico de la cancha.
 - Desde el partido, enlazar a la cancha asignada o al predio si falta la cancha. Permitir editar la asignación del encuentro desde el partido; la configuración del catálogo se edita desde el módulo.
 - Reutilizar Cloudinary y sus controles de imágenes; una foto de portada por predio y por cancha en esta entrega. Dirección y botón de mapa, sin contratar geocodificación ni servicio nuevo. No inventar direcciones o fotos.
 
@@ -36,7 +36,7 @@ Acceso público desde Partidos → Canchas, conservando las cinco secciones prin
 
 ## Estadísticas por arco
 
-Apartado separado dentro de Estadísticas, agrupado por predio y cancha física; reutilizable en sus fichas. Filtros de fechas y categoría.
+Apartado separado dentro de Estadísticas, agrupado por predio y cancha física; reutilizable en sus fichas. Vista acumulada sin controles de filtros, según el ajuste posterior aprobado.
 
 Ejemplo sobre diez partidos de Rebote F7: Estacionamiento 50 %, Empate 10 %, Pared 40 % representa cinco victorias del equipo que defendió Estacionamiento, un empate y cuatro victorias del que defendió Pared.
 
@@ -145,3 +145,11 @@ El detalle ahora etiqueta Clima y Temperatura. Aclaración del usuario: el forma
 ### Equipos mensuales en página propia
 
 El usuario pidió acceso desde Jugadores mediante «Ver equipos del mes». Se trasladó la vista a `/jugadores/equipos-del-mes`, con encabezado propio y regreso mediante la flecha a Jugadores. Mejor y peor equipo se presentan en dos columnas de igual ancho también a 340 px; los PJ aparecen debajo del nombre para conservar legibilidad. Ambas listas muestran V−D, por lo que el peor equipo tiene puntajes negativos cuando acumula más derrotas. Se mantienen el orden de selección, los desempates, los meses cerrados y el total de tipos de partidos. Pruebas de cálculo actualizadas y verificación móvil: 296 pruebas y compilación con TypeScript aprobadas, sin desbordamiento horizontal a 340 px.
+
+### Archivo mensual y revisión de cierre — 28/10/2026
+
+Se reemplazó el selector por el último mes calendario cerrado y tarjetas completas enlazadas a los meses anteriores (`?mes=AAAA-MM`); cada tarjeta abre las dos listas del mes elegido. Se conserva el vacío de septiembre y la exclusión del mes actual, sin modificar fechas. Los enlaces permiten compartir y volver mediante el navegador. La prueba de cancelación conserva la protección frente a respuestas obsoletas y se comprobó el archivo con el último mes vacío.
+
+Verificación de este bloque: 297 pruebas unitarias/interacción, compilación y TypeScript aprobados. Se ejecutaron nuevamente 84 comprobaciones integradas de canchas/partidos y 49 de seguridad, exclusivamente en staging con registros marcados por UUID y limpieza confirmada. Incluyen creación/edición, formatos independientes, pertenencia de cancha/arcos, filtros combinados, historiales, exclusión de ocultos, roles y sesiones falsificadas, cambios de rol inmediatos y rate limit.
+
+Revisión visual local a 340/390 px y escritorio a 1440 px: dos columnas mensuales sin desbordamiento, navegación al archivo, botón de comparación visible y foto vertical completa. Las mediciones de páginas y APIs del Preview y la revisión de credenciales se detallan en los documentos de rendimiento y seguridad. Las sugerencias del grupo acordadas están implementadas; no se agrega un nuevo bloque funcional pendiente implícito.

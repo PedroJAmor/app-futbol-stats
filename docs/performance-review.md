@@ -38,3 +38,12 @@ No es una prueba de carga ni garantiza esos tiempos en teléfonos o Vercel. Las 
 ## Próximos bloques
 
 Medir navegación y arranque en Vercel con tráfico real; revisar región de ejecución frente a la DB de São Paulo antes de decidir un cambio de configuración. Evaluar paginación y caché solo si el volumen lo justifica, definiendo invalidación y frescura de los datos. No se cambian esos comportamientos en este bloque.
+
+
+## Revisión del Preview y móvil — 28/10/2026
+
+Mediciones HTTP desde esta conexión, con el enlace compartido existente y sin sesión de la aplicación. Tres solicitudes secuenciales por ruta. Inicio, Partidos, Jugadores, Estadísticas, Canchas y Corner Cancha 2 respondieron 200. Tiempos hasta primeras cabeceras: 72–335 ms; tiempos de cuerpo completo 74–339 ms. APIs de estadísticas, arcos, equipos mensuales de mayo y tarjetas de partidos: 75–389 ms por respuesta completa. No se observaron demoras de varios segundos en estas muestras; no equivalen a LCP/INP, tiempo total de hidratación, dispositivo físico, red celular, prueba de carga ni garantía de arranque frío. No se atribuye una mejora nueva al cambio visual mensual.
+
+Navegador local sobre build optimizado: navegación Partidos → Estadísticas, botón Ir a comparar visible y destino dentro de pantalla; ancho global de 340 px sin desbordamiento. Foto vertical de Corner 2 cargada 720×1280 y mostrada con contain a 300 px de ancho. Archivo mensual a 340/390 y escritorio a 1440 sin desbordamiento; las dos listas conservan igual ancho. Sin errores de consola en el recorrido observado.
+
+Evidencia local ignorada: `.local-artifacts/friends-feedback/review-preview.json`, `review-api-latency.json`, `meses-historial.jpg`. Las mediciones no requieren cambios de región, caché, consultas ni base de datos. Quedan como trabajo futuro opcional las métricas de campo en teléfonos/red celular, monitoreo y evaluación de paginación según crecimiento.
