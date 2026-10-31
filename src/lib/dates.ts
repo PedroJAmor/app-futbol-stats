@@ -31,6 +31,12 @@ export function formatArgentinaMatchDate(date: Date | string) {
   return text.charAt(0).toLocaleUpperCase("es") + text.slice(1);
 }
 
+export function formatArgentinaHomeDate(date: Date | string) {
+  const days = ["Lu", "Ma", "Mi", "Ju", "Vi", "Sa", "Do"];
+  const day = days[Number(formatInTimeZone(date, ARGENTINA_TIME_ZONE, "i")) - 1];
+  return `${day} ${formatArgentinaDate(date)}`;
+}
+
 export function toArgentinaFormValues(date: Date | string) {
   return {
     date: formatInTimeZone(date, ARGENTINA_TIME_ZONE, "yyyy-MM-dd"),

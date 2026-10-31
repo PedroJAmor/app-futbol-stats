@@ -175,3 +175,11 @@ Los datos del partido se centran vertical y horizontalmente. El precio utiliza e
 El usuario rechazó el precio de ancho completo: vuelve a una sola columna, como los demás datos. Se ordenan los campos Tipo → Predio → Cancha física y se limitan expresamente las anchuras internas del selector de equipos y su buscador, sin agregar redistribuciones. Los cambios sustanciales de UI deben consultarse antes de implementarlos. La comprobación de ancho debe abarcar los controles internos, además del diálogo completo.
 
 Verificado en navegador con el selector de jugadores abierto: a 340, 390, 430 y 1280 px, ambos equipos tienen scrollWidth igual a clientWidth y el nombre y buscador permanecen dentro de su tarjeta. 302 pruebas, TypeScript y compilación aprobados. No se guardaron cambios de datos.
+
+### Tarjetas compactas de Inicio y navegación — 31/10/2026
+
+Cambio estético solicitado: solo en Inicio, tarjetas con día abreviado y fecha sin hora arriba (`Mi 28/10/2026`) y formato/predio abajo (`F5 · La Redonda`), una línea por franja. Se conserva el detalle completo en el nombre accesible del enlace y la información de las tarjetas en Partidos/historiales. Las tres tarjetas siguen fijas en una fila. El encabezado deja de reservar altura para varias líneas.
+
+La selección activa de la barra inferior ocupa toda la casilla rectangular, sin píldora alrededor del texto. Se conservan los cinco textos actuales, rutas y estado accesible de selección, pendientes los íconos del usuario.
+
+303 pruebas, TypeScript y build aprobados. Revisión local en 340, 390, 430 y 1280 px: fechas y predios actuales caben en una sola línea sin desbordar; tarjetas de 74,5 px de altura. La casilla activa tiene la misma altura que la barra interior (68 px), sin esquinas redondeadas propias. Sin cambios de datos.

@@ -1,9 +1,10 @@
 import { categoryLabels, type Category } from "@/features/matches/categories";
 import Link from "next/link";
-import { formatArgentinaDate, formatArgentinaMatchDate } from "@/lib/dates";
+import { formatArgentinaDate, formatArgentinaMatchDate, formatArgentinaHomeDate } from "@/lib/dates";
 
 type MatchCardProps = {
   compact?: boolean;
+  home?: boolean;
   showResult?: boolean;
   match: {
     id: number; playedAt: Date | string; format: number; venue: string | null; isHidden?: boolean; category?: Category | null;
@@ -12,18 +13,18 @@ type MatchCardProps = {
   };
 };
 
-export default function MatchCard({ match, compact = false, showResult = false }: MatchCardProps) {
+export default function MatchCard({ match, compact = false, home = false, showResult = false }: MatchCardProps) {
   const winner = match.teams.find((team) => team.result === "WIN");
   const result = winner ? `Ganó ${winner.color}` : "Empate";
   const dateTime = formatArgentinaMatchDate(match.playedAt);
   const content = <>
     <div className="match-card-top">
-      {compact ? <strong className="match-result">{result}</strong> : <time className="match-date-title" dateTime={new Date(match.playedAt).toISOString()}>{dateTime}</time>}
+      {compact ? <strong className="match-result">{result}</strong> : <time className="match-date-title" dateTime={new Date(match.playedAt).toISOString()}>{home ? formatArgentinaHomeDate(match.playedAt) : dateTime}</time>}
       {match.isHidden && <span className="pill">Oculto</span>}
     </div>
     <div className="match-card-footer">
       {compact ? <time dateTime={new Date(match.playedAt).toISOString()} title={dateTime}>{formatArgentinaDate(match.playedAt).slice(0, 5)}</time> :
-        <span className="match-location">{match.venue ?? "Sin predio"} · F{match.format} · {match.category ? categoryLabels[match.category] : "Sin clasificar"}</span>
+        <span className="match-location" title={home ? `F${match.format} · ${match.venue ?? "Sin predio"}` : undefined}>{home ? `F${match.format} · ${match.venue ?? "Sin predio"}` : `${match.venue ?? "Sin predio"} · F${match.format} · ${match.category ? categoryLabels[match.category] : "Sin clasificar"}`}</span>
       }
       {showResult && !compact && <span className="match-history-result">{result}</span>}
     </div>

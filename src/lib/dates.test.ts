@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { argentinaFormToUtc, formatArgentinaDateTime, formatArgentinaMatchDate } from "./dates";
+import { argentinaFormToUtc, formatArgentinaHomeDate, formatArgentinaDateTime, formatArgentinaMatchDate } from "./dates";
 
 describe("Argentina timezone", () => {
   it("rechaza días inexistentes y horas fuera de rango", () => {
@@ -18,4 +18,9 @@ describe("Argentina timezone", () => {
     expect(utc.toISOString()).toBe("2026-06-02T00:30:00.000Z");
     expect(formatArgentinaDateTime(utc)).toBe("01/06/2026 21:30");
   });
+});
+
+it("abrevia el día y conserva fecha sin hora según Argentina para Inicio", () => {
+  expect(formatArgentinaHomeDate("2026-10-25T01:00:00Z")).toBe("Sa 24/10/2026");
+  expect(formatArgentinaHomeDate("2026-10-26T18:00:00Z")).toBe("Lu 26/10/2026");
 });
