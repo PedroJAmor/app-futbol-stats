@@ -130,3 +130,36 @@ it("carga cancha y arcos del predio y conserva la categoría elegida al guardar"
   expect(payload).toMatchObject({ category: "SPECIAL", courtId: 4, aGoalId: 11, confirmLocation: true });
   expect(onClose).toHaveBeenCalledTimes(1);
 });
+
+it("sugiere formato al elegir cancha, conserva tipos explícitos y permite F6 en una cancha F7", async () => {
+  const venues = [{ id: 1, name: "Predio", courts: [
+    { id: 5, name: "F5", format: 5, goals: [] },
+    { id: 7, name: "F7", format: 7, goals: [] },
+    { id: 8, name: "Sin formato", format: null, goals: [] },
+  ] }];
+  fetchMock.mockImplementation((url: string) => Promise.resolve(response(url.startsWith('/api/jugadores') ? players : venues)));
+  await act(async () => root.render(<MatchEditor onClose={onClose} />));
+  function field(label: string) { return [...host.querySelectorAll('label')].find(item => item.firstChild?.textContent === label)!.querySelector<HTMLInputElement | HTMLSelectElement>('input,select')!; }
+  async function change(label: string, value: string) {
+    await act(async () => { const input = field(label); Object.getOwnPropertyDescriptor(input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event(input instanceof HTMLInputElement ? 'input' : 'change', { bubbles: true })); });
+  }
+  await change('Predio', '1');
+  await change('Cancha física', '5');
+  expect(field('Formato').value).toBe('5');
+  await change('Tipo', 'SPECIAL');
+  await change('Cancha física', '7');
+  expect(field('Formato').value).toBe('7');
+  expect(field('Tipo').value).toBe('SPECIAL');
+  await change('Formato', '6');
+  expect(field('Formato').value).toBe('6');
+  expect(field('Cancha física').value).toBe('7');
+  await change('Cancha física', '8');
+  expect(field('Formato').value).toBe('6');
+});
+
+it("no reemplaza el formato guardado al abrir una edición con cancha de otro formato", async () => {
+  fetchMock.mockImplementation((url: string) => Promise.resolve(response(url.startsWith('/api/jugadores') ? players : [{ id: 1, name: 'Predio', courts: [{ id: 7, name: 'F7', format: 7, goals: [] }] }])));
+  await act(async () => root.render(<MatchEditor match={{ ...match, format: 6, venueId: '1', courtId: '7' }} onClose={onClose} />));
+  const input = [...host.querySelectorAll('label')].find(item => item.firstChild?.textContent === 'Formato')!.querySelector('input')!;
+  expect(input.value).toBe('6');
+});

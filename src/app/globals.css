@@ -194,11 +194,11 @@ textarea { min-height: 108px; resize: vertical; }
 .match-history-result { flex-basis: 100%; font-size: 12px; }
 
 .match-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.match-facts span { min-width: 0; border-radius: 999px; padding: 6px 10px; color: var(--ink); background: var(--lime); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.match-facts > span { gap: 4px; display: flex; align-items: center; justify-content: center; text-align: center; min-width: 0; border-radius: 999px; padding: 6px 10px; color: var(--ink); background: var(--lime); font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
 .match-teams-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .team-sheet { min-width: 0; }
-.team-sheet-title { display: flex; min-height: 36px; align-items: center; justify-content: space-between; gap: 5px; margin-bottom: 5px; border: 1px solid var(--lime); border-radius: 7px; padding: 8px; color: var(--lime); font-size: 12px; flex-wrap: wrap; text-transform: uppercase; }
-.team-sheet.winner .team-sheet-title { color: var(--lime); background: transparent; }
+.team-sheet-title { display: flex; min-height: 36px; align-items: center; justify-content: center; gap: 5px; margin-bottom: 5px; border: 1px solid transparent; border-radius: 7px; padding: 8px; color: var(--lime); font-size: 12px; flex-wrap: wrap; text-transform: uppercase; }
+.team-sheet.winner .team-sheet-title { border-color: var(--lime); color: var(--lime); background: transparent; }
 .team-sheet-title strong { font-size: 11px; }
 .team-sheet ol { display: grid; gap: 3px; margin: 0; padding: 0; list-style-position: inside; }
 .team-sheet li { min-width: 0; min-height: 44px; border-left: 3px solid var(--lime); border-radius: 3px; padding: 10px 8px; color: var(--ink); background: var(--stone); font-size: 15px; line-height: 1.5; font-weight: 600; text-transform: uppercase; overflow-wrap: anywhere; }
@@ -490,3 +490,14 @@ h3 { margin-bottom: 6px; }
 .mvp-marker { display: inline-block; margin-left: 4px; font-size: .8em; vertical-align: baseline; }
 
 .monthly-entry { display: inline-flex; align-items: center; justify-content: center; justify-self: start; text-align: center; }
+
+/* Keep match editing inside the viewport, including intrinsic input widths. */
+.match-facts > .match-fact-price { grid-column: 1 / -1; }
+.modal-backdrop:has(.match-editor) { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+.match-editor { min-width: 0; max-width: 100%; }
+.match-editor .form-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+.match-editor .card, .match-editor .stack, .match-editor .selected-list > * { min-width: 0; }
+.match-editor input, .match-editor select, .match-editor textarea { min-width: 0; max-width: 100%; }
+.team-selector-heading { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.team-selector-heading input { width: 100%; }
+@media (min-width: 600px) { .team-selector-heading { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; } }
