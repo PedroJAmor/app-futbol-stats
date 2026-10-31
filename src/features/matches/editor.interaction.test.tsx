@@ -143,6 +143,7 @@ it("sugiere formato al elegir cancha, conserva tipos explícitos y permite F6 en
   async function change(label: string, value: string) {
     await act(async () => { const input = field(label); Object.getOwnPropertyDescriptor(input instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLSelectElement.prototype, 'value')!.set!.call(input, value); input.dispatchEvent(new Event(input instanceof HTMLInputElement ? 'input' : 'change', { bubbles: true })); });
   }
+  expect([...host.querySelectorAll('.form-grid > label')].map(item => item.firstChild?.textContent).slice(3, 6)).toEqual(['Tipo', 'Predio', 'Cancha física']);
   await change('Predio', '1');
   await change('Cancha física', '5');
   expect(field('Formato').value).toBe('5');

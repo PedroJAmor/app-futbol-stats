@@ -168,3 +168,10 @@ A pedido del usuario, sobre las listas de equipos se muestra solo «Ganador» pa
 Los datos del partido se centran vertical y horizontalmente. El precio utiliza el ancho completo para reducir cortes sin bajar la legibilidad. El diálogo de edición/creación limita su ancho a la pantalla y distribuye campos y cabeceras de equipos con columnas que pueden contraerse. Al seleccionar una cancha física con formato, se completa ese formato en el formulario; si no tiene formato, se conserva el actual. Sigue editable manualmente y abrir una edición no reemplaza un formato guardado diferente del de la cancha. Se conserva una categoría elegida explícitamente.
 
 302 pruebas, TypeScript y compilación aprobados. Navegador local conectado a staging: selección Rebote F5 Cancha 1 completa formato 5; diálogo con scrollWidth igual a clientWidth en 340, 390, 430 y 1280 px. Detalle del partido existente #70 con precio, clima, temperatura y MVP revisado sin guardar cambios ni crear partidos. Capturas en `.local-artifacts/friends-feedback/`.
+
+
+### Corrección de distribución solicitada — 31/10/2026
+
+El usuario rechazó el precio de ancho completo: vuelve a una sola columna, como los demás datos. Se ordenan los campos Tipo → Predio → Cancha física y se limitan expresamente las anchuras internas del selector de equipos y su buscador, sin agregar redistribuciones. Los cambios sustanciales de UI deben consultarse antes de implementarlos. La comprobación de ancho debe abarcar los controles internos, además del diálogo completo.
+
+Verificado en navegador con el selector de jugadores abierto: a 340, 390, 430 y 1280 px, ambos equipos tienen scrollWidth igual a clientWidth y el nombre y buscador permanecen dentro de su tarjeta. 302 pruebas, TypeScript y compilación aprobados. No se guardaron cambios de datos.
